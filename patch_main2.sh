@@ -1,0 +1,1 @@
+sed -i 's/import com.example.features.settings.ActiveBlockerScreen/import com.example.features.settings.ActiveBlockerScreen\nimport com.example.data.repository.AuthStatus\nimport androidx.compose.runtime.collectAsState\nimport androidx.compose.runtime.getValue/' app/src/main/java/com/example/MainActivity.kt

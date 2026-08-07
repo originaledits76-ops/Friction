@@ -1,0 +1,1 @@
+sed -i 's/unfocusedIndicatorColor = Color(0x30FFFFFF),/unfocusedIndicatorColor = Color(0x30FFFFFF),\n                disabledIndicatorColor = Color(0x30FFFFFF),/g' app/src/main/java/com/example/features/onboarding/OnboardingScreen.kt

@@ -1,0 +1,2 @@
+sed -i 's/const val ROUTE_ONBOARDING = "onboarding"/const val ROUTE_ONBOARDING = "onboarding"\nconst val ROUTE_PERMISSIONS = "permissions"/g' app/src/main/java/com/example/core/navigation/FrictionNavigation.kt
+sed -i 's/import com.example.features.onboarding.OnboardingScreen/import com.example.features.onboarding.OnboardingScreen\nimport com.example.features.permission.PermissionsFlowScreen/g' app/src/main/java/com/example/core/navigation/FrictionNavigation.kt

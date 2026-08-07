@@ -1,0 +1,2 @@
+sed -i 's/val config = activeBlockedAppConfig/val config = activeBlockedAppConfig\n                            val authStatus by currentLoginViewModel.uiState.collectAsState()\n                            val user = if (authStatus is AuthStatus.Authenticated) (authStatus as AuthStatus.Authenticated).user else com.example.data.model.User()/' app/src/main/java/com/example/MainActivity.kt
+sed -i 's/rule = FrictionRule(/user = user,\n                                    rule = FrictionRule(/' app/src/main/java/com/example/MainActivity.kt

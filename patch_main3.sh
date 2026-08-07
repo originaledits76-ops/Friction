@@ -1,0 +1,1 @@
+sed -i 's/                                    rule = FrictionRule(/                                    rule = currentHomeViewModel.rules.collectAsState().value.find { it.id == config.ruleId } ?: FrictionRule(/g' app/src/main/java/com/example/MainActivity.kt

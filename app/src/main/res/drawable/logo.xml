@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Background Container -->
+    <path
+        android:pathData="M24,12 L84,12 A12,12 0 0,1 96,24 L96,84 A12,12 0 0,1 84,96 L24,96 A12,12 0 0,1 12,84 L12,24 A12,12 0 0,1 24,12 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="12"
+                android:startY="12"
+                android:endX="96"
+                android:endY="96"
+                android:startColor="#FF10B981"
+                android:endColor="#FF059669">
+                <item android:color="#FF10B981" android:offset="0.0"/>
+                <item android:color="#FF059669" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Shield / Flame / Focus Emblem -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 C54,26 36,34 36,48 C36,66 54,82 54,82 C54,82 72,66 72,48 C72,34 54,26 54,26 Z"
+        android:alpha="0.25" />
+
+    <!-- Lightning / Friction Bolt inside Shield -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M57,32 L41,54 L52,54 L49,76 L67,52 L55,52 Z" />
+</vector>

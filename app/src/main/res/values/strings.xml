@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Friction</string>
+    <string name="accessibility_service_description">Friction relies on this service to detect when you launch distracting apps, allowing us to help you build focus before you scroll.</string>
+</resources>

@@ -1,0 +1,1 @@
+sed -i 's/    if (showWizard) {/    if (showAppClassification) {\n        AppClassificationScreen(\n            onDismiss = { showAppClassification = false },\n            homeViewModel = homeViewModel\n        )\n        return\n    }\n\n    if (showWizard) {/g' app/src/main/java/com/example/features/settings/SettingsScreen.kt

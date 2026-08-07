@@ -1,0 +1,6 @@
+{
+  "name": "Friction",
+  "description": "Transform your life. Reduce mindless screen time by adding small amounts of productive friction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
