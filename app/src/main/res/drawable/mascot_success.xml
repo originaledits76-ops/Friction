@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Celebration Fireworks Background -->
+    <path android:pathData="M100,20 L100,10 M100,180 L100,190 M20,100 L10,100 M180,100 L190,100 M43,43 L36,36 M157,157 L164,164 M43,157 L36,164 M157,43 L164,36"
+        android:strokeWidth="3" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+
+    <!-- Trophy -->
+    <path
+        android:pathData="M75,115 L75,125 Q75,145 100,145 Q125,145 125,125 L125,115 Z"
+        android:strokeWidth="2" android:strokeColor="#FFFFD54F">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="100" android:startY="115" android:endX="100" android:endY="145">
+                <item android:color="#FFFFB300" android:offset="0.0" />
+                <item android:color="#FFFF8F00" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Trophy Stand -->
+    <path android:pathData="M100,145 L100,160 M80,160 L120,160" android:strokeWidth="5" android:strokeColor="#FFFFB300" android:strokeLineCap="round" />
+
+    <!-- Celebrating Robot Mascot Body -->
+    <path
+        android:pathData="M70,45 C70,30 83,20 100,20 C117,20 130,30 130,45 L130,95 C130,110 117,120 100,120 C83,120 70,110 70,95 Z"
+        android:fillColor="#FF0F172A"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FF00E676" />
+
+    <!-- Happy Eyes / Visor -->
+    <path android:pathData="M78,38 L122,38 C125,38 128,41 128,45 L128,60 C128,64 125,67 122,67 L78,67 C75,67 72,64 72,60 L72,45 C72,41 75,38 78,38 Z" android:fillColor="#FF0284C7" />
+
+    <!-- Cheerful Eyes ^ ^ -->
+    <path android:pathData="M83,52 L88,46 L93,52" android:strokeWidth="3" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+    <path android:pathData="M107,52 L112,46 L117,52" android:strokeWidth="3" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+
+    <!-- Confetti -->
+    <path android:pathData="M 41,40 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0" android:fillColor="#FFFF1744" />
+    <path android:pathData="M 150,45 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0" android:fillColor="#FF00E5FF" />
+    <path android:pathData="M150,70 L158,70 L158,78 L150,78 Z" android:fillColor="#FFFFB300" />
+    <path android:pathData="M40,75 L48,75 L48,83 L40,83 Z" android:fillColor="#FFA855F7" />
+</vector>

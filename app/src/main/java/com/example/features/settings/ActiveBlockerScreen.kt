@@ -427,6 +427,55 @@ fun CameraPreviewView(
 }
 
 @Composable
+fun PushupCameraPreview(
+    onRepCounted: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    AndroidView(
+        factory = { ctx ->
+            val previewView = PreviewView(ctx).apply {
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+                    
+                    val imageAnalysis = androidx.camera.core.ImageAnalysis.Builder()
+                        .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(ContextCompat.getMainExecutor(ctx), PoseAnalyzer(onRepCounted))
+                        }
+
+                    val cameraSelector = CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+                        .build()
+
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageAnalysis
+                    )
+                } catch (e: Exception) {
+                    Log.e("PushupCameraPreview", "Error initializing CameraX: ${e.message}")
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+            previewView
+        },
+        modifier = modifier
+    )
+}
+
+@Composable
 fun TypingChallengeUI(
     user: User,
     rule: FrictionRule,
@@ -662,7 +711,7 @@ fun PushupChallengeUI(
 ) {
     val context = LocalContext.current
     var pushupCount by remember { mutableStateOf(0) }
-    val targetCount = if (rule.challengeValue < 20) 20 else rule.challengeValue
+    val targetCount = rule.challengeValue // Fixed: User configures 10, it displays 10
     var hasCameraPermission by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -702,7 +751,7 @@ fun PushupChallengeUI(
                 Icon(Icons.Default.Videocam, null, tint = FrictionPrimary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Front Camera Active • Honest Self-Verification Mode",
+                    text = "Live AI Pose Detection Active",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
@@ -713,14 +762,16 @@ fun PushupChallengeUI(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(240.dp)
+                .height(300.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
             if (hasCameraPermission) {
-                CameraPreviewView(
-                    lensFacing = CameraSelector.LENS_FACING_FRONT,
+                PushupCameraPreview(
+                    onRepCounted = { reps ->
+                        pushupCount = reps
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -754,7 +805,7 @@ fun PushupChallengeUI(
         Spacer(modifier = Modifier.height(16.dp))
 
         LinearProgressIndicator(
-            progress = { pushupCount.toFloat() / targetCount.toFloat() },
+            progress = { if (targetCount > 0) pushupCount.toFloat() / targetCount.toFloat() else 0f },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             color = FrictionPrimary,
             trackColor = DarkSurface
@@ -764,22 +815,21 @@ fun PushupChallengeUI(
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
-                onClick = { if (pushupCount < targetCount) pushupCount++ },
+                onClick = onCancel,
                 modifier = Modifier.weight(1f).height(52.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("+1 Push-up", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("Give Up", color = TextSecondary, fontWeight = FontWeight.SemiBold)
             }
 
             FrictionButton(
-                text = if (pushupCount >= targetCount) "Complete & Unlock" else "Finish Reps",
+                text = "Complete & Unlock",
                 onClick = {
                     if (pushupCount >= targetCount) {
                         onComplete()
-                    } else {
-                        pushupCount = targetCount
                     }
                 },
+                enabled = pushupCount >= targetCount,
                 modifier = Modifier.weight(1f).height(52.dp)
             )
         }

@@ -36,6 +36,8 @@ fun HomeScreen(
     homeViewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context as? android.app.Activity
     var selectedTab by remember { mutableStateOf("dashboard") }
     var showPaywall by remember { mutableStateOf(false) }
     val isPermissionGranted by homeViewModel.isPermissionGranted.collectAsState()
@@ -48,8 +50,13 @@ fun HomeScreen(
 
     if (showPaywall) {
         PaywallScreen(
+            user = user,
+            onLinkGoogle = { activity?.let { loginViewModel.linkGoogleAccount(it) } },
             onDismiss = { showPaywall = false },
-            onPurchaseSuccess = { showPaywall = false }
+            onPurchaseSuccess = { plan ->
+                homeViewModel.purchasePlan(user, plan.name)
+                showPaywall = false
+            }
         )
         return
     }
@@ -177,11 +184,16 @@ fun HomeScreen(
                                 user = user,
                                 todayScreenTimeMs = todayScreenTimeMs,
                                 unlocksToday = if (todayScreenTimeMs > 0) (todayScreenTimeMs / 600000L).toInt().coerceAtLeast(1) else 0,
-                                onNavigateToTab = { selectedTab = it }
+                                onNavigateToTab = { selectedTab = it },
+                                onLinkGoogleAccount = { activity?.let { loginViewModel.linkGoogleAccount(it) } },
+                                onStartFreeTrial = { homeViewModel.startFreeTrial(user) },
+                                onMarkOfferSeen = { homeViewModel.markEarlyBirdOfferSeen(user) },
+                                onOpenPaywall = { showPaywall = true }
                             )
                         }
                         "analytics" -> {
                             AnalyticsScreen(
+                                user = user,
                                 todayScreenTimeMs = todayScreenTimeMs,
                                 dailyHistory = homeViewModel.dailyHistory,
                                 weeklyHistory = homeViewModel.weeklyHistory,
@@ -195,21 +207,25 @@ fun HomeScreen(
                                 onOpenEngine = { selectedTab = "settings" },
                                 onClassifyApps = { selectedTab = "dashboard" },
                                 onReviewGoal = { selectedTab = "settings" },
-                                onViewAnalytics = { selectedTab = "analytics" }
+                                onViewAnalytics = { selectedTab = "analytics" },
+                                onOpenPaywall = { showPaywall = true }
                             )
                         }
                         "friends" -> {
                             FriendsScreen(
+                                user = user,
                                 friends = friends,
                                 leaderboardWeekly = leaderboardWeekly,
                                 leaderboardMonthly = leaderboardMonthly,
                                 onSendRequest = { homeViewModel.sendFriendRequest(user.uid, it) },
                                 onAcceptRequest = { homeViewModel.acceptFriendRequest(user.uid, it) },
-                                onRejectRequest = { homeViewModel.rejectFriendRequest(user.uid, it) }
+                                onRejectRequest = { homeViewModel.rejectFriendRequest(user.uid, it) },
+                                onOpenPaywall = { showPaywall = true }
                             )
                         }
                         "settings" -> {
                             SettingsScreen(
+                                user = user,
                                 rules = rules,
                                 challenges = challenges,
                                 onToggleRule = { id, active -> homeViewModel.toggleRule(id, active) },

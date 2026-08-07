@@ -3,6 +3,7 @@ package com.example.features.dashboard
 import android.text.format.DateFormat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.example.core.widgets.BackgroundStyle
 import com.example.core.widgets.FrictionButton
 import com.example.core.widgets.PremiumBackground
+import com.example.R
 import com.example.data.model.User
 import com.example.ui.theme.*
 import java.util.Date
@@ -48,10 +50,32 @@ fun DashboardScreen(
     todayScreenTimeMs: Long,
     unlocksToday: Int,
     onNavigateToTab: (String) -> Unit,
+    onLinkGoogleAccount: () -> Unit = {},
+    onStartFreeTrial: () -> Unit = {},
+    onMarkOfferSeen: () -> Unit = {},
+    onOpenPaywall: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val todayDateStr = DateFormat.getLongDateFormat(context).format(Date())
+
+    var showEarlyBirdDialog by remember { mutableStateOf(false) }
+    var showTrialExpiredDialog by remember { mutableStateOf(false) }
+
+    // Trigger Early Bird Dialog ONCE if user has not seen it yet and is not premium
+    LaunchedEffect(user.uid, user.hasSeenEarlyBirdOffer, user.premium) {
+        if (!user.hasSeenEarlyBirdOffer && !user.premium) {
+            kotlinx.coroutines.delay(1200)
+            showEarlyBirdDialog = true
+        }
+    }
+
+    // Trigger Trial Expired Dialog if trial has ended
+    LaunchedEffect(user.subscriptionStatus, user.trialEndsAt) {
+        if (user.subscriptionStatus == "EXPIRED" || (user.trialConsumed && !user.isTrialActive && user.premiumPlan == "TRIAL")) {
+            showTrialExpiredDialog = true
+        }
+    }
 
     // Animation progress for circular goal ring
     val goalMaxMs = 3600000L * 4 // 4 Hours limit
@@ -62,6 +86,224 @@ fun DashboardScreen(
         animatedProgress.animateTo(
             targetValue = progressRatio,
             animationSpec = tween(1200, easing = EaseInOutQuad)
+        )
+    }
+
+    if (showEarlyBirdDialog) {
+        // Mark as seen immediately when presented so it appears ONLY ONCE
+        LaunchedEffect(Unit) {
+            onMarkOfferSeen()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showEarlyBirdDialog = false },
+            confirmButton = {},
+            dismissButton = {},
+            containerColor = Color.Transparent,
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.padding( horizontal = 8.dp ),
+            text = {
+                com.example.core.widgets.GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    backgroundColor = DarkCardBg.copy(alpha = 0.95f),
+                    borderColor = FrictionPrimary.copy(alpha = 0.35f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Badge top
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = FrictionPrimary.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, FrictionPrimary.copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Stars,
+                                    contentDescription = null,
+                                    tint = FrictionAccent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "EARLY BIRD LAUNCH OFFER",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FrictionAccent,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+                        }
+
+                        // Mascot image
+                        Image(
+                            painter = painterResource(id = R.drawable.mascot_hi),
+                            contentDescription = "Early Bird Mascot",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(90.dp)
+                        )
+
+                        Text(
+                            text = "Unlock Your Full Focus Potential",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        // Body text with highlighted terms
+                        Text(
+                            text = "Enjoy Premium free for 3 days and unlock our exclusive launch pricing on Annual and Lifetime plans.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        // Feature Highlights Card
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = DarkSurface,
+                            border = BorderStroke(1.dp, Color(0x15FFFFFF)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = FrictionPrimary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Unlimited App Limits & Barriers", style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = FrictionPrimary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("MediaPipe Camera Push-Up Counter", style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = FrictionPrimary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Exclusive 25% Launch Discount", style = MaterialTheme.typography.bodySmall, color = FrictionAccent, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Action Buttons
+                        FrictionButton(
+                            text = "Start 3-Day Free Trial",
+                            onClick = {
+                                showEarlyBirdDialog = false
+                                onStartFreeTrial()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        )
+
+                        TextButton(
+                            onClick = { showEarlyBirdDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Maybe Later", color = TextMuted, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    if (showTrialExpiredDialog) {
+        AlertDialog(
+            onDismissRequest = { showTrialExpiredDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TimerOff,
+                        contentDescription = null,
+                        tint = FrictionAccent,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "3-Day Trial Ended",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Your 3-day Premium trial has completed. Upgrade to Premium to keep unlimited app rules, AI physical challenges, and detailed analytics.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                }
+            },
+            confirmButton = {
+                FrictionButton(
+                    text = "Upgrade to Premium",
+                    onClick = {
+                        showTrialExpiredDialog = false
+                        onOpenPaywall()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showTrialExpiredDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Continue with Free", color = TextMuted)
+                }
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    if (user.isGuestExpired()) {
+        AlertDialog(
+            onDismissRequest = { /* Force account linking when expired */ },
+            confirmButton = {
+                FrictionButton(
+                    text = "Link Google Account",
+                    onClick = onLinkGoogleAccount,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            title = {
+                Text(
+                    text = "Guest Account Expired",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Your 14-day Guest trial has ended. Please link or sign in with your Google account to permanently save your progress, limits, and stats.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -76,6 +318,74 @@ fun DashboardScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+        // Persistent Guest Warning Card
+        if (user.guest && !user.isGuestExpired()) {
+            val remainingDays = user.getGuestRemainingDays()
+            val daysLabel = if (remainingDays == 1L) "1 day remaining" else "$remainingDays days remaining"
+
+            com.example.core.widgets.GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                backgroundColor = FrictionAccent.copy(alpha = 0.12f),
+                borderColor = FrictionAccent.copy(alpha = 0.4f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShieldMoon,
+                                contentDescription = "Guest Warning",
+                                tint = FrictionAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Protect your progress",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = FrictionAccent.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = daysLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = FrictionAccent,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "You're using a Guest account. Link your Google account within 14 days to permanently save your progress.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        lineHeight = 16.sp
+                    )
+
+                    FrictionButton(
+                        text = "Link Google Account",
+                        icon = { Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color.White) },
+                        onClick = onLinkGoogleAccount,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
         // 1. Top Greeting Section with Flick Mascot
         Surface(
             shape = RoundedCornerShape(24.dp),
@@ -138,6 +448,85 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
+                }
+            }
+        }
+
+        // Dashboard Premium Card (Part 3)
+        if (!user.premium) {
+            com.example.core.widgets.GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenPaywall() },
+                shape = RoundedCornerShape(22.dp),
+                backgroundColor = FrictionPrimary.copy(alpha = 0.12f),
+                borderColor = FrictionPrimary.copy(alpha = 0.35f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.mascot_premium),
+                            contentDescription = "Premium Mascot",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(54.dp)
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Early Bird Launch Offer",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = FrictionAccent.copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        text = "25% OFF",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FrictionAccent,
+                                        fontSize = 9.sp,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Claim your launch pricing before the offer ends.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = FrictionPrimary,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(
+                            text = "View Plans →",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DarkBackground,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
                 }
             }
         }

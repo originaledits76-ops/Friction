@@ -66,6 +66,15 @@ class AuthRepository(private val context: Context) {
             putInt("${user.uid}_coins", user.coins)
             putInt("${user.uid}_streak", user.currentStreak)
             putBoolean("${user.uid}_is_guest", user.guest)
+            putLong("${user.uid}_created_at", user.createdAt)
+            putBoolean("${user.uid}_premium", user.premium)
+            putLong("${user.uid}_trial_started_at", user.trialStartedAt)
+            putLong("${user.uid}_trial_ends_at", user.trialEndsAt)
+            putBoolean("${user.uid}_trial_consumed", user.trialConsumed)
+            putBoolean("${user.uid}_is_trial_active", user.isTrialActive)
+            putString("${user.uid}_premium_plan", user.premiumPlan)
+            putString("${user.uid}_sub_status", user.subscriptionStatus)
+            putLong("${user.uid}_last_trial_validation", user.lastTrialValidation)
             putString("${user.uid}_custom_objects", user.customObjects.joinToString(","))
             putString("${user.uid}_badges", user.unlockedBadges.joinToString(","))
 
@@ -78,6 +87,8 @@ class AuthRepository(private val context: Context) {
             putString("demo_custom_goal", user.customGoal)
             putString("demo_motivation", user.motivation)
             putBoolean("demo_is_guest", user.guest)
+            putLong("demo_created_at", user.createdAt)
+            putBoolean("demo_premium", user.premium)
             apply()
         }
         Log.d(tag, "[AuthRepository] Local cache updated for UID '${user.uid}': Name='${user.displayName}', Goal='${user.goal}', Age=${user.age}, XP=${user.xp}")
@@ -95,6 +106,15 @@ class AuthRepository(private val context: Context) {
         val coins = prefs.getInt("${uid}_coins", 0)
         val streak = prefs.getInt("${uid}_streak", 0)
         val isGuest = prefs.getBoolean("${uid}_is_guest", prefs.getBoolean("demo_is_guest", false))
+        val createdAt = prefs.getLong("${uid}_created_at", prefs.getLong("demo_created_at", System.currentTimeMillis()))
+        val isPremium = prefs.getBoolean("${uid}_premium", prefs.getBoolean("demo_premium", false))
+        val trialStartedAt = prefs.getLong("${uid}_trial_started_at", 0L)
+        val trialEndsAt = prefs.getLong("${uid}_trial_ends_at", 0L)
+        val trialConsumed = prefs.getBoolean("${uid}_trial_consumed", false)
+        val isTrialActive = prefs.getBoolean("${uid}_is_trial_active", false)
+        val premiumPlan = prefs.getString("${uid}_premium_plan", "NONE") ?: "NONE"
+        val subStatus = prefs.getString("${uid}_sub_status", "FREE") ?: "FREE"
+        val lastTrialValidation = prefs.getLong("${uid}_last_trial_validation", 0L)
         val customObjsStr = prefs.getString("${uid}_custom_objects", null) ?: "Water Bottle,Notebook,Backpack,Pen,Chair"
         val badgesStr = prefs.getString("${uid}_badges", null) ?: ""
 
@@ -106,6 +126,8 @@ class AuthRepository(private val context: Context) {
             displayName = name,
             email = email,
             guest = isGuest,
+            createdAt = createdAt,
+            premium = isPremium,
             level = level,
             xp = xp,
             coins = coins,
@@ -115,7 +137,14 @@ class AuthRepository(private val context: Context) {
             customGoal = customGoal,
             motivation = motivation,
             unlockedBadges = badges,
-            customObjects = customObjs
+            customObjects = customObjs,
+            trialStartedAt = trialStartedAt,
+            trialEndsAt = trialEndsAt,
+            trialConsumed = trialConsumed,
+            isTrialActive = isTrialActive,
+            premiumPlan = premiumPlan,
+            subscriptionStatus = subStatus,
+            lastTrialValidation = lastTrialValidation
         )
         Log.d(tag, "[AuthRepository] Loaded cached user for UID '$uid' - Goal: '${user.goal}', Name: '${user.displayName}'")
         return user
@@ -365,6 +394,92 @@ class AuthRepository(private val context: Context) {
                     "Authentication error: ${e.message ?: "Sign-in process failed."}"
                 }
                 _authStatus.value = AuthStatus.Error(msg)
+            }
+        }
+    }
+
+    fun linkGoogleAccount(activity: Activity) {
+        Log.i(tag, "[LinkAccount] Starting Google account linking process for guest user")
+        _authStatus.value = AuthStatus.Loading
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val credentialManager = CredentialManager.create(activity)
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId("233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com")
+                    .setAutoSelectEnabled(false)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val result: GetCredentialResponse = withContext(Dispatchers.IO) {
+                    credentialManager.getCredential(activity, request)
+                }
+
+                val credential = result.credential
+                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val idToken = googleIdTokenCredential.idToken
+                    val email = googleIdTokenCredential.id
+                    val displayName = googleIdTokenCredential.displayName ?: ""
+
+                    val fbCredential = GoogleAuthProvider.getCredential(idToken, null)
+                    val authInstance = firebaseAuth ?: throw IllegalStateException("Firebase Auth service is unavailable")
+                    val currentFbUser = authInstance.currentUser
+
+                    if (currentFbUser != null && currentFbUser.isAnonymous) {
+                        try {
+                            val linkResult = currentFbUser.linkWithCredential(fbCredential).await()
+                            val linkedFbUser = linkResult.user
+                            val uid = linkedFbUser?.uid ?: currentFbUser.uid
+
+                            val existingUser = userRepository.getUser(uid) ?: getCachedUser(uid)
+                            val updatedUser = existingUser.copy(
+                                uid = uid,
+                                guest = false,
+                                displayName = linkedFbUser?.displayName ?: displayName.ifEmpty { existingUser.displayName.ifEmpty { "Friction Member" } },
+                                email = linkedFbUser?.email ?: email.ifEmpty { existingUser.email },
+                                photoUrl = linkedFbUser?.photoUrl?.toString() ?: existingUser.photoUrl
+                            )
+                            saveCachedUser(updatedUser)
+                            userRepository.createOrUpdateUser(updatedUser)
+                            Log.i(tag, "[LinkAccount] Successfully linked Google credential to anonymous user UID '$uid'")
+                            _authStatus.value = AuthStatus.Authenticated(updatedUser)
+                        } catch (e: Exception) {
+                            Log.w(tag, "[LinkAccount] Link failed (account collision or error): ${e.message}. Signing in directly with Google.")
+                            val authResult = authInstance.signInWithCredential(fbCredential).await()
+                            val fbUser = authResult.user
+                            if (fbUser != null) {
+                                val uid = fbUser.uid
+                                val existingUser = userRepository.getUser(uid) ?: getCachedUser(uid)
+                                val updatedUser = existingUser.copy(
+                                    uid = uid,
+                                    guest = false,
+                                    displayName = fbUser.displayName ?: displayName.ifEmpty { existingUser.displayName },
+                                    email = fbUser.email ?: email.ifEmpty { existingUser.email },
+                                    photoUrl = fbUser.photoUrl?.toString() ?: existingUser.photoUrl
+                                )
+                                saveCachedUser(updatedUser)
+                                userRepository.createOrUpdateUser(updatedUser)
+                                _authStatus.value = AuthStatus.Authenticated(updatedUser)
+                            } else {
+                                throw Exception("Google account sign-in failed during linking.")
+                            }
+                        }
+                    } else {
+                        signInWithGoogle(activity)
+                    }
+                } else {
+                    _authStatus.value = AuthStatus.Error("Received unsupported authentication credential format.")
+                }
+            } catch (e: GetCredentialCancellationException) {
+                Log.i(tag, "[LinkAccount] Account picker cancelled by user.")
+                checkInitialAuthState()
+            } catch (e: Exception) {
+                Log.e(tag, "[LinkAccount] Error during Google account linking: ${e.message}", e)
+                _authStatus.value = AuthStatus.Error("Failed to link Google account: ${e.message ?: "Unknown error"}")
             }
         }
     }

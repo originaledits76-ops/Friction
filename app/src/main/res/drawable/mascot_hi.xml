@@ -1,0 +1,102 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Outer Glow -->
+    <path
+        android:pathData="M100,20 C144,20 180,56 180,100 C180,144 144,180 100,180 C56,180 20,144 20,100 C20,56 56,20 100,20 Z"
+        android:fillAlpha="0.15">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="80">
+                <item android:color="#FF00E5FF" android:offset="0.0" />
+                <item android:color="#00000000" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Body Capsule -->
+    <path
+        android:pathData="M65,70 C65,50 80,35 100,35 C120,35 135,50 135,70 L135,125 C135,145 120,160 100,160 C80,160 65,145 65,125 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="100"
+                android:startY="35"
+                android:endX="100"
+                android:endY="160">
+                <item android:color="#FF1E293B" android:offset="0.0" />
+                <item android:color="#FF0F172A" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Glowing Cyan Visor Screen -->
+    <path
+        android:pathData="M73,60 C73,52 80,46 90,46 L110,46 C120,46 127,52 127,60 L127,82 C127,90 120,96 110,96 L90,96 C80,96 73,90 73,82 Z"
+        android:strokeWidth="2"
+        android:strokeColor="#FF00E5FF">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="100"
+                android:startY="46"
+                android:endX="100"
+                android:endY="96">
+                <item android:color="#FF0284C7" android:offset="0.0" />
+                <item android:color="#FF0369A1" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Expressive Eyes -->
+    <path
+        android:pathData="M83,68 C86,68 88,71 88,75 C88,79 86,82 83,82 C80,82 78,79 78,75 C78,71 80,68 83,68 Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M117,68 C120,68 122,71 122,75 C122,79 120,82 117,82 C114,82 112,79 112,75 C112,71 114,68 117,68 Z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Cute Smiling Mouth -->
+    <path
+        android:pathData="M94,84 Q100,90 106,84"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FF38BDF8"
+        android:strokeLineCap="round" />
+
+    <!-- Waving Arm (Right) -->
+    <path
+        android:pathData="M135,95 Q160,85 168,60 C171,51 160,47 155,56 Q145,78 135,85"
+        android:fillColor="#FF0284C7"
+        android:strokeWidth="2"
+        android:strokeColor="#FF38BDF8" />
+
+    <!-- Waving Sparkles near hand -->
+    <path
+        android:pathData="M172,42 L175,48 L181,51 L175,54 L172,60 L169,54 L163,51 L169,48 Z"
+        android:fillColor="#FF38BDF8" />
+    <path
+        android:pathData="M152,35 L154,39 L158,41 L154,43 L152,47 L150,43 L146,41 L150,39 Z"
+        android:fillColor="#FF7C4DFF" />
+
+    <!-- Left Arm Resting -->
+    <path
+        android:pathData="M65,95 Q48,110 52,125 Q58,130 65,115"
+        android:fillColor="#FF0F172A"
+        android:strokeWidth="2"
+        android:strokeColor="#FF38BDF8" />
+
+    <!-- Chest Core Pulse Ring -->
+    <path
+        android:pathData="M100,110 A12,12 0 1,0 100,134 A12,12 0 1,0 100,110 Z"
+        android:fillColor="#FF0284C7" />
+    <path
+        android:pathData="M100,116 A6,6 0 1,0 100,128 A6,6 0 1,0 100,116 Z"
+        android:fillColor="#FF38BDF8" />
+</vector>

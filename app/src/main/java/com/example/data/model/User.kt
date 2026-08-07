@@ -24,7 +24,15 @@ data class User(
     val customGoal: String = "",
     val motivation: String = "",
     val unlockedBadges: List<String> = emptyList(),
-    val customObjects: List<String> = emptyList()
+    val customObjects: List<String> = emptyList(),
+    val trialStartedAt: Long = 0L,
+    val trialEndsAt: Long = 0L,
+    val trialConsumed: Boolean = false,
+    val isTrialActive: Boolean = false,
+    val premiumPlan: String = "NONE",
+    val subscriptionStatus: String = "FREE",
+    val lastTrialValidation: Long = 0L,
+    val hasSeenEarlyBirdOffer: Boolean = false
 ) {
     fun toMap(): Map<String, Any> {
         return mapOf(
@@ -48,7 +56,33 @@ data class User(
             "customGoal" to customGoal,
             "motivation" to motivation,
             "unlockedBadges" to unlockedBadges,
-            "customObjects" to customObjects
+            "customObjects" to customObjects,
+            "trialStartedAt" to trialStartedAt,
+            "trialEndsAt" to trialEndsAt,
+            "trialConsumed" to trialConsumed,
+            "isTrialActive" to isTrialActive,
+            "premiumPlan" to premiumPlan,
+            "subscriptionStatus" to subscriptionStatus,
+            "lastTrialValidation" to lastTrialValidation,
+            "hasSeenEarlyBirdOffer" to hasSeenEarlyBirdOffer
         )
+    }
+
+    fun hasTrialExpired(): Boolean {
+        if (!isTrialActive) return false
+        return System.currentTimeMillis() >= trialEndsAt
+    }
+
+    fun getGuestRemainingDays(): Long {
+        val elapsedMs = System.currentTimeMillis() - createdAt
+        val fourteenDaysMs = 14 * 24 * 3600 * 1000L
+        val remainingMs = maxOf(0L, fourteenDaysMs - elapsedMs)
+        return (remainingMs + (24 * 3600 * 1000L - 1)) / (24 * 3600 * 1000L)
+    }
+
+    fun isGuestExpired(): Boolean {
+        if (!guest) return false
+        val fourteenDaysMs = 14 * 24 * 3600 * 1000L
+        return (System.currentTimeMillis() - createdAt) >= fourteenDaysMs
     }
 }

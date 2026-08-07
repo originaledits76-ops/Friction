@@ -575,4 +575,46 @@ class HomeViewModel(
             Log.i(tag, "[HomeViewModel] User profile updated & cached: Name='${user.displayName}', Goal='${user.goal}'")
         }
     }
+
+    fun markEarlyBirdOfferSeen(user: com.example.data.model.User) {
+        if (!user.hasSeenEarlyBirdOffer) {
+            val updatedUser = user.copy(hasSeenEarlyBirdOffer = true)
+            updateUserProfile(updatedUser)
+            Log.i(tag, "[HomeViewModel] Marked Early Bird offer as seen for UID '${user.uid}'")
+        }
+    }
+
+    fun startFreeTrial(user: com.example.data.model.User) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val trialEnd = now + (3 * 24 * 3600 * 1000L) // 3-day trial
+            val updatedUser = user.copy(
+                premium = true,
+                trialStartedAt = now,
+                trialEndsAt = trialEnd,
+                isTrialActive = true,
+                trialConsumed = true,
+                premiumPlan = "TRIAL",
+                subscriptionStatus = "TRIAL",
+                lastTrialValidation = now
+            )
+            updateUserProfile(updatedUser)
+            Log.i(tag, "[HomeViewModel] Activated 3-day free trial for UID '${user.uid}'. Trial ends at: $trialEnd")
+        }
+    }
+
+    fun purchasePlan(user: com.example.data.model.User, planName: String) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val updatedUser = user.copy(
+                premium = true,
+                isTrialActive = false,
+                premiumPlan = planName,
+                subscriptionStatus = "ACTIVE",
+                lastTrialValidation = now
+            )
+            updateUserProfile(updatedUser)
+            Log.i(tag, "[HomeViewModel] Purchased premium plan '$planName' for UID '${user.uid}'")
+        }
+    }
 }

@@ -36,11 +36,13 @@ import com.example.data.model.AppUsageInfo
 import com.example.data.service.ScreenTimeService
 import com.example.features.dashboard.formatTimeMs
 import com.example.core.widgets.BackgroundStyle
+import com.example.core.widgets.FrictionButton
 import com.example.core.widgets.PremiumBackground
 import com.example.ui.theme.*
 
 @Composable
 fun AnalyticsScreen(
+    user: com.example.data.model.User? = null,
     todayScreenTimeMs: Long,
     dailyHistory: Map<String, Long>,
     weeklyHistory: Map<String, Long>,
@@ -55,11 +57,18 @@ fun AnalyticsScreen(
     onClassifyApps: () -> Unit = {},
     onReviewGoal: () -> Unit = {},
     onViewAnalytics: () -> Unit = {},
+    onOpenPaywall: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dims = com.example.ui.theme.LocalResponsiveDimensions.current
     var selectedTab by remember { mutableStateOf("DAILY") } // "DAILY", "WEEKLY", "MONTHLY"
     val scrollState = rememberScrollState()
+
+    val currentHistory = when (selectedTab) {
+        "DAILY" -> dailyHistory
+        "WEEKLY" -> weeklyHistory
+        else -> monthlyHistory
+    }
 
     // Real-time calculated statistics
     val hasRealData = topApps.isNotEmpty() || 
@@ -236,28 +245,115 @@ fun AnalyticsScreen(
                 }
             }
 
-            // 4. Custom drawn dynamic Chart Graph
-            val currentHistory = when (selectedTab) {
-                "DAILY" -> dailyHistory
-                "WEEKLY" -> weeklyHistory
-                else -> monthlyHistory
-            }
-            var selectedInterval by remember { mutableStateOf<com.example.data.service.IntervalDetails?>(null) }
-            AnalyticsChart(
-                historyMap = currentHistory,
-                isLineChart = selectedTab == "DAILY",
-                onPointClicked = { label, value -> 
-                    selectedInterval = com.example.data.service.IntervalDetails(
-                        timeLabel = label,
-                        screenTimeMs = value
+            // Today's Total Screen Time Number-Only Overview Card
+            com.example.core.widgets.GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                backgroundColor = DarkCardBg.copy(alpha = 0.9f),
+                borderColor = FrictionPrimary.copy(alpha = 0.3f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "TODAY'S SCREEN TIME",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = FrictionPrimary,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = formatTimeMs(todayScreenTimeMs),
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextPrimary
                     )
                 }
-            )
-            selectedInterval?.let { details ->
-                ChartTooltipBottomSheet(
-                    details = details,
-                    onDismiss = { selectedInterval = null }
+            }
+
+            if (user?.premium != true) {
+                // Free Plan Lock Banner for Graphs & AI Insights
+                com.example.core.widgets.GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    backgroundColor = DarkCardBg.copy(alpha = 0.95f),
+                    borderColor = FrictionAccent.copy(alpha = 0.35f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = FrictionAccent.copy(alpha = 0.15f),
+                            modifier = Modifier.size(60.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = FrictionAccent,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Interactive Analytics & AI Insights",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "Free users can view today's total screen time numbers. Upgrade to Premium for interactive charts, trend breakdowns, and AI habit coaching!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        FrictionButton(
+                            text = "Unlock Detailed Analytics",
+                            onClick = onOpenPaywall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                // 4. Custom drawn dynamic Chart Graph
+                val currentHistory = when (selectedTab) {
+                    "DAILY" -> dailyHistory
+                    "WEEKLY" -> weeklyHistory
+                    else -> monthlyHistory
+                }
+                var selectedInterval by remember { mutableStateOf<com.example.data.service.IntervalDetails?>(null) }
+                AnalyticsChart(
+                    historyMap = currentHistory,
+                    isLineChart = selectedTab == "DAILY",
+                    onPointClicked = { label, value -> 
+                        selectedInterval = com.example.data.service.IntervalDetails(
+                            timeLabel = label,
+                            screenTimeMs = value
+                        )
+                    }
                 )
+                selectedInterval?.let { details ->
+                    ChartTooltipBottomSheet(
+                        details = details,
+                        onDismiss = { selectedInterval = null }
+                    )
+                }
             }
 
             // Personal Insights Card (Clean M3 card, no model/backend names)

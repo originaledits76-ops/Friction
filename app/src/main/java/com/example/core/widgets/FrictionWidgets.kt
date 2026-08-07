@@ -334,6 +334,7 @@ fun FrictionButton(
     isLoading: Boolean = false,
     isSecondary: Boolean = false,
     isGhost: Boolean = false,
+    enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -341,7 +342,7 @@ fun FrictionButton(
     
     // Premium spring-based scale animation (target 0.97 on press)
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1.0f,
+        targetValue = if (isPressed && enabled) 0.97f else 1.0f,
         animationSpec = spring(
             dampingRatio = 0.8f, // comfortable bounce
             stiffness = Spring.StiffnessMedium
@@ -353,7 +354,7 @@ fun FrictionButton(
 
     Surface(
         onClick = {
-            if (!isLoading) {
+            if (!isLoading && enabled) {
                 try {
                     // Soft tactile haptic response
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -363,16 +364,19 @@ fun FrictionButton(
                 onClick()
             }
         },
+        enabled = enabled,
         modifier = modifier
             .scale(scale)
             .heightIn(min = 48.dp), // Touch target compliance (minimum 48dp)
         shape = RoundedCornerShape(16.dp), // Premium 16px corner radius
         color = when {
+            !enabled -> DarkSurface
             isGhost -> Color.Transparent
             isSecondary -> DarkCardBg
             else -> FrictionPrimary
         },
         border = when {
+            !enabled -> BorderStroke(1.dp, Color(0x10FFFFFF))
             isGhost -> null
             isSecondary -> BorderStroke(1.dp, Color(0x15FFFFFF))
             else -> null
@@ -402,6 +406,7 @@ fun FrictionButton(
                     text = text,
                     style = MaterialTheme.typography.labelLarge,
                     color = when {
+                        !enabled -> TextSecondary
                         isGhost -> FrictionPrimary
                         isSecondary -> TextPrimary
                         else -> Color(0xFF111315) // Deep contrast text on Accent Green primary CTA

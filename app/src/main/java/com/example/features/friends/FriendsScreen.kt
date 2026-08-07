@@ -33,21 +33,38 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FriendsScreen(
+    user: com.example.data.model.User? = null,
     friends: List<FriendInfo>,
     leaderboardWeekly: List<FriendInfo>,
     leaderboardMonthly: List<FriendInfo>,
     onSendRequest: (String) -> Unit,
     onAcceptRequest: (String) -> Unit,
     onRejectRequest: (String) -> Unit,
+    onOpenPaywall: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var activeSubTab by remember { mutableStateOf("BUDDIES") } // "BUDDIES", "LEADERBOARD"
     var leaderboardType by remember { mutableStateOf("WEEKLY") } // "WEEKLY", "MONTHLY"
     var searchQuery by remember { mutableStateOf("") }
+    var showLockedSheet by remember { mutableStateOf(false) }
+    var lockedTitle by remember { mutableStateOf("") }
+    var lockedDesc by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     val pendingReceived = friends.filter { it.status == "RECEIVED" }
     val activeFriends = friends.filter { it.status == "FRIEND" }
+
+    if (showLockedSheet) {
+        com.example.features.paywall.LockedFeatureSheet(
+            featureTitle = lockedTitle,
+            featureDescription = lockedDesc,
+            onUpgrade = {
+                showLockedSheet = false
+                onOpenPaywall()
+            },
+            onDismiss = { showLockedSheet = false }
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         PremiumBackground(BackgroundStyle.LEADERBOARD)
@@ -137,7 +154,11 @@ fun FriendsScreen(
                 FrictionButton(
                     text = "Invite",
                     onClick = {
-                        if (searchQuery.isNotEmpty()) {
+                        if (activeFriends.size >= 2 && user?.premium != true) {
+                            lockedTitle = "Friend Limit Reached"
+                            lockedDesc = "Free plan allows up to 2 attention buddies. Upgrade to Premium for unlimited focus friends!"
+                            showLockedSheet = true
+                        } else if (searchQuery.isNotEmpty()) {
                             onSendRequest(searchQuery)
                             searchQuery = ""
                         }
@@ -202,7 +223,7 @@ fun FriendsScreen(
                     // Friends List
                     item {
                         Text(
-                            text = "My Focus Buddies (${activeFriends.size})",
+                            text = "My Focus Buddies (${activeFriends.size}/2 Free)",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary,
@@ -218,6 +239,61 @@ fun FriendsScreen(
                         items(activeFriends) { friend ->
                             BuddyCard(friend = friend)
                         }
+                    }
+                }
+            } else if (user?.premium != true) {
+                // Locked Leaderboard for Free Plan
+                com.example.core.widgets.GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    backgroundColor = DarkCardBg.copy(alpha = 0.9f),
+                    borderColor = FrictionAccent.copy(alpha = 0.3f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = FrictionAccent.copy(alpha = 0.15f),
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = FrictionAccent,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Leaderboard is a Premium Feature",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "Upgrade to Premium to unlock live weekly & monthly focus rankings and compare screen time with your buddies!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        FrictionButton(
+                            text = "Unlock Leaderboard",
+                            onClick = onOpenPaywall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             } else {

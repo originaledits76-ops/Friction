@@ -48,6 +48,7 @@ fun isAccessibilityServiceEnabled(context: Context): Boolean {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    user: com.example.data.model.User? = null,
     rules: List<FrictionRule>,
     challenges: List<Challenge>,
     onToggleRule: (String, Boolean) -> Unit,
@@ -73,7 +74,7 @@ fun SettingsScreen(
     if (showLockedSheet) {
         com.example.features.paywall.LockedFeatureSheet(
             featureTitle = "Limit Threshold Reached",
-            featureDescription = "Free users can active up to 3 limits. Upgrade to Premium for unlimited app limits and custom friction rules.",
+            featureDescription = "Free users can create up to 2 active limits. Upgrade to Premium for unlimited app limits and custom friction rules.",
             onUpgrade = {
                 showLockedSheet = false
                 onOpenPaywall()
@@ -93,6 +94,8 @@ fun SettingsScreen(
     if (showWizard) {
         AddLimitWizard(
             homeViewModel = homeViewModel,
+            isPremium = user?.premium == true,
+            onOpenPaywall = onOpenPaywall,
             onDismiss = { showWizard = false },
             onSave = { rule ->
                 onAddRule(rule)
@@ -269,7 +272,7 @@ fun SettingsScreen(
                         text = "Add Limit",
                         icon = { Icon(Icons.Default.Add, contentDescription = null) },
                         onClick = {
-                            if (rules.size >= 3) {
+                            if (rules.size >= 2 && user?.premium != true) {
                                 showLockedSheet = true
                             } else {
                                 showWizard = true
@@ -431,7 +434,11 @@ fun LimitCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(text = rule.targetAppName.takeIf { it.isNotEmpty() } ?: rule.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text(text = "Every ${rule.thresholdMinutes} minutes", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        Text(
+                            text = if (rule.thresholdMinutes > 0) "Every ${rule.thresholdMinutes} mins" else "Triggers on app open",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
                     }
                 }
                 Switch(
@@ -441,13 +448,21 @@ fun LimitCard(
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
+            val challengeLabel = when (rule.challengeType.uppercase()) {
+                "PUSHUPS", "PUSH-UPS" -> "${rule.challengeValue} Push-ups"
+                "MATH" -> "Math Puzzle"
+                "TYPING" -> "Typing Challenge"
+                "WALK" -> "Walking Challenge"
+                "FIND_OBJECT" -> "Find Object"
+                else -> rule.challengeType.replace("_", " ")
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Lock, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "${rule.challengeValue} ${rule.challengeType}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = FrictionPrimary)
+                Text(text = challengeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = FrictionPrimary)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(text = "+${rule.penaltyXp} XP", style = MaterialTheme.typography.labelMedium, color = FrictionAccent, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(12.dp))

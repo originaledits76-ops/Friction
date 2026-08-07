@@ -50,10 +50,33 @@ class UserRepository(private val firestoreService: FirestoreService) {
                     customGoal = doc.getString("customGoal") ?: "",
                     motivation = doc.getString("motivation") ?: "",
                     unlockedBadges = badgesList,
-                    customObjects = customObjsList
+                    customObjects = customObjsList,
+                    trialStartedAt = doc.getLong("trialStartedAt") ?: 0L,
+                    trialEndsAt = doc.getLong("trialEndsAt") ?: 0L,
+                    trialConsumed = doc.getBoolean("trialConsumed") ?: false,
+                    isTrialActive = doc.getBoolean("isTrialActive") ?: false,
+                    premiumPlan = doc.getString("premiumPlan") ?: "NONE",
+                    subscriptionStatus = doc.getString("subscriptionStatus") ?: "FREE",
+                    lastTrialValidation = doc.getLong("lastTrialValidation") ?: 0L
                 )
-                Log.d(tag, "[UserRepository] Read profile for UID '$targetUid' - Name: '${user.displayName}', Goal: '${user.goal}', XP: ${user.xp}, Level: ${user.level}, Badges: ${badgesList.size}, CustomObjects: ${customObjsList.size}")
-                user
+
+                val now = System.currentTimeMillis()
+                val finalUser = if (user.isTrialActive && now >= user.trialEndsAt && user.trialEndsAt > 0L) {
+                    Log.i(tag, "[TrialValidation] 3-Day Trial has expired for UID '$targetUid'. Updating subscription status to EXPIRED.")
+                    val expiredUser = user.copy(
+                        isTrialActive = false,
+                        premium = if (user.premiumPlan == "TRIAL") false else user.premium,
+                        subscriptionStatus = "EXPIRED",
+                        lastTrialValidation = now
+                    )
+                    createOrUpdateUser(expiredUser)
+                    expiredUser
+                } else {
+                    user
+                }
+
+                Log.d(tag, "[UserRepository] Read profile for UID '$targetUid' - Name: '${finalUser.displayName}', Goal: '${finalUser.goal}', Premium: ${finalUser.premium}, TrialActive: ${finalUser.isTrialActive}")
+                finalUser
             } else {
                 Log.i(tag, "[UserRepository] Document does not exist in Firestore for UID '$targetUid'")
                 null

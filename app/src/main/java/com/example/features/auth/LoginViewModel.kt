@@ -24,6 +24,10 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         authRepository.signInWithGoogle(activity)
     }
 
+    fun linkGoogleAccount(activity: Activity) {
+        authRepository.linkGoogleAccount(activity)
+    }
+
     fun loginAsGuest() {
         authRepository.signInAnonymously()
     }

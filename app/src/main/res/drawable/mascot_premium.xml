@@ -1,0 +1,63 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Golden Aura Background -->
+    <path android:pathData="M 20,100 a 80,80 0 1,0 160,0 a 80,80 0 1,0 -160,0" android:fillAlpha="0.2">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="80">
+                <item android:color="#FFFFB300" android:offset="0.0" />
+                <item android:color="#00000000" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Golden Crown -->
+    <path
+        android:pathData="M60,65 L72,90 L100,60 L128,90 L140,65 L148,105 L52,105 Z"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFD54F">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="100"
+                android:startY="60"
+                android:endX="100"
+                android:endY="105">
+                <item android:color="#FFFFB300" android:offset="0.0" />
+                <item android:color="#FFFF6F00" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Jewels on Crown -->
+    <path android:pathData="M 56,62 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0" android:fillColor="#FFFF1744" />
+    <path android:pathData="M 95,57 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0" android:fillColor="#FF00E5FF" />
+    <path android:pathData="M 136,62 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0" android:fillColor="#FFFF1744" />
+
+    <!-- Robot Mascot Body with Regal Cape/Suit -->
+    <path
+        android:pathData="M70,110 C70,95 83,85 100,85 C117,85 130,95 130,110 L130,150 C130,165 117,175 100,175 C83,175 70,165 70,150 Z"
+        android:fillColor="#FF0F172A"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFB300" />
+
+    <!-- Visor -->
+    <path
+        android:pathData="M78,105 L122,105 C125,105 128,108 128,112 L128,128 C128,132 125,135 122,135 L78,135 C75,135 72,132 72,128 L72,112 C72,108 75,105 78,105 Z"
+        android:fillColor="#FF1E293B" />
+
+    <!-- Glowing Stars in Eyes -->
+    <path android:pathData="M88,115 L90,119 L94,120 L91,123 L92,127 L88,125 L84,127 L85,123 L82,120 L86,119 Z" android:fillColor="#FFFFB300" />
+    <path android:pathData="M112,115 L114,119 L118,120 L115,123 L116,127 L112,125 L108,127 L109,123 L106,120 L110,119 Z" android:fillColor="#FFFFB300" />
+
+    <!-- Sparkles -->
+    <path android:pathData="M35,60 L38,68 L46,71 L38,74 L35,82 L32,74 L24,71 L32,68 Z" android:fillColor="#FFFFD54F" />
+    <path android:pathData="M165,70 L167,75 L172,77 L167,79 L165,84 L163,79 L158,77 L163,75 Z" android:fillColor="#FFFFD54F" />
+</vector>

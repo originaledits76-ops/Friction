@@ -1,0 +1,50 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Energy Circle Background -->
+    <path android:pathData="M 25,100 a 75,75 0 1,0 150,0 a 75,75 0 1,0 -150,0" android:fillAlpha="0.15">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="75">
+                <item android:color="#FF00E676" android:offset="0.0" />
+                <item android:color="#00000000" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Dumbbell / Weight Icon -->
+    <path android:pathData="M35,100 L165,100" android:strokeWidth="10" android:strokeColor="#FF334155" android:strokeLineCap="round" />
+    <path android:pathData="M35,100 L165,100" android:strokeWidth="6" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+
+    <!-- Weights Left -->
+    <path android:pathData="M40,81 C40,77 43,75 46,75 L46,75 C49,75 52,77 52,81 L52,119 C52,123 49,125 46,125 L46,125 C43,125 40,123 40,119 Z" android:fillColor="#FF00E676" />
+    <path android:pathData="M25,88 C25,84 28,82 31,82 L31,82 C34,82 37,84 37,88 L37,112 C37,116 34,118 31,118 L31,118 C28,118 25,116 25,112 Z" android:fillColor="#FF10B981" />
+
+    <!-- Weights Right -->
+    <path android:pathData="M148,81 C148,77 151,75 154,75 L154,75 C157,75 160,77 160,81 L160,119 C160,123 157,125 154,125 L154,125 C151,125 148,123 148,119 Z" android:fillColor="#FF00E676" />
+    <path android:pathData="M163,88 C163,84 166,82 169,82 L169,82 C172,82 175,84 175,88 L175,112 C175,116 172,118 169,118 L169,118 C166,118 163,116 163,112 Z" android:fillColor="#FF10B981" />
+
+    <!-- Fitness Robot Mascot Body -->
+    <path
+        android:pathData="M75,60 C75,45 86,35 100,35 C114,35 125,45 125,60 L125,120 C125,135 114,145 100,145 C86,145 75,135 75,120 Z"
+        android:fillColor="#FF0F172A"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FF00E676" />
+
+    <!-- Headband -->
+    <path android:pathData="M79,48 L121,48 C123,48 125,50 125,52 L125,52 C125,54 123,56 121,56 L79,56 C77,56 75,54 75,52 L75,52 C75,50 77,48 79,48 Z" android:fillColor="#FFEF4444" />
+
+    <!-- Visor -->
+    <path android:pathData="M81,60 L119,60 C122,60 124,62 124,65 L124,78 C124,81 122,83 119,83 L81,83 C78,83 76,81 76,78 L76,65 C76,62 78,60 81,60 Z" android:fillColor="#FF0284C7" />
+
+    <!-- Determined Eyes -->
+    <path android:pathData="M85,71 L93,67" android:strokeWidth="3" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+    <path android:pathData="M115,71 L107,67" android:strokeWidth="3" android:strokeColor="#FF00E676" android:strokeLineCap="round" />
+</vector>
