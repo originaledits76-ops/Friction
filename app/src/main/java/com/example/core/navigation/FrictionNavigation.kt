@@ -112,7 +112,9 @@ fun FrictionNavigationHost(
             enterTransition = { fadeIn(animationSpec = tween(500)) },
             exitTransition = { fadeOut(animationSpec = tween(500)) }
         ) {
+            val currentUser = (authStatus as? AuthStatus.Authenticated)?.user
             OnboardingScreen(
+                initialName = currentUser?.displayName ?: "",
                 onComplete = { name, age, goal, customGoal, motivation ->
                     loginViewModel.updateOnboardingData(name, age, goal, customGoal, motivation)
                     navController.navigate(ROUTE_PERMISSIONS) {

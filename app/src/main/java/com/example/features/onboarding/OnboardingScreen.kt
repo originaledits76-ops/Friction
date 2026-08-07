@@ -49,11 +49,12 @@ data class GoalOption(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun OnboardingScreen(
+    initialName: String = "",
     onComplete: (name: String, age: Int, goal: String, customGoal: String, motivation: String) -> Unit
 ) {
     var step by remember { mutableIntStateOf(1) }
 
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName) }
     var ageStr by remember { mutableStateOf("") }
     var selectedGoalTitle by remember { mutableStateOf("") }
     var customGoal by remember { mutableStateOf("") }

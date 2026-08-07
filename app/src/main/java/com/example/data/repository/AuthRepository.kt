@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.example.data.model.User
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -251,15 +252,17 @@ class AuthRepository(private val context: Context) {
     }
 
     fun signInWithGoogle(activity: Activity) {
+        Log.i(tag, "[AuthFlow] Step 1: 'Continue with Google' button pressed")
         _authStatus.value = AuthStatus.Loading
         CoroutineScope(Dispatchers.Main).launch {
             try {
+                Log.i(tag, "[AuthFlow] Step 2: Launching official Google Account Picker")
                 val credentialManager = CredentialManager.create(activity)
                 
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId("233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com")
-                    .setAutoSelectEnabled(true)
+                    .setAutoSelectEnabled(false) // Force Google Account Picker dialog
                     .build()
 
                 val request = GetCredentialRequest.Builder()
@@ -274,49 +277,94 @@ class AuthRepository(private val context: Context) {
                 if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                     val idToken = googleIdTokenCredential.idToken
+                    val email = googleIdTokenCredential.id
+                    val displayName = googleIdTokenCredential.displayName ?: ""
                     
+                    Log.i(tag, "[AuthFlow] Step 3: Google account selected. Email: '$email', Name: '$displayName'")
+                    Log.i(tag, "[AuthFlow] Step 4: OAuth ID token received (Token length: ${idToken.length})")
+                    
+                    Log.i(tag, "[AuthFlow] Step 5: Firebase authentication started")
                     val fbCredential = GoogleAuthProvider.getCredential(idToken, null)
-                    val authResult = firebaseAuth?.signInWithCredential(fbCredential)?.await() ?: throw IllegalStateException("Firebase Auth is not available")
+                    val authInstance = firebaseAuth ?: throw IllegalStateException("Firebase Auth service is unavailable")
+                    val authResult = authInstance.signInWithCredential(fbCredential).await()
                     val fbUser = authResult.user
                     
-                    if (fbUser != null) {
+                    if (fbUser != null && firebaseAuth?.currentUser != null) {
                         val uid = fbUser.uid
-                        val cachedUser = getCachedUser(uid)
-                        val existingUser = userRepository.getUser(uid)
+                        Log.i(tag, "[AuthFlow] Step 6: Firebase authentication successful. FirebaseAuth currentUser UID: '$uid'")
                         
-                        val user = if (existingUser != null) {
-                            existingUser.copy(
+                        Log.i(tag, "[AuthFlow] Step 7: Firestore profile lookup for UID '$uid'")
+                        val existingUser = userRepository.getUser(uid)
+                        val cachedUser = getCachedUser(uid)
+                        
+                        val finalUser = if (existingUser != null && existingUser.goal.isNotEmpty()) {
+                            Log.i(tag, "[AuthFlow] Step 8: Firestore profile document EXISTS for UID '$uid'. Goal: '${existingUser.goal}'")
+                            val updated = existingUser.copy(
                                 lastLogin = System.currentTimeMillis(),
-                                goal = existingUser.goal.ifEmpty { cachedUser.goal },
-                                customGoal = existingUser.customGoal.ifEmpty { cachedUser.customGoal },
-                                motivation = existingUser.motivation.ifEmpty { cachedUser.motivation },
-                                age = if (existingUser.age > 0) existingUser.age else cachedUser.age
-                            )
-                        } else {
-                            cachedUser.copy(
-                                uid = uid,
-                                displayName = fbUser.displayName ?: cachedUser.displayName.ifEmpty { "Friction User" },
-                                email = fbUser.email ?: "",
-                                photoUrl = fbUser.photoUrl?.toString() ?: "",
+                                displayName = fbUser.displayName ?: existingUser.displayName.ifEmpty { displayName },
+                                email = fbUser.email ?: existingUser.email,
+                                photoUrl = fbUser.photoUrl?.toString() ?: existingUser.photoUrl,
                                 guest = false
                             )
+                            saveCachedUser(updated)
+                            userRepository.createOrUpdateUser(updated)
+                            updated
+                        } else {
+                            Log.i(tag, "[AuthFlow] Step 8: Firestore profile document NEW or INCOMPLETE for UID '$uid'")
+                            val newUser = User(
+                                uid = uid,
+                                displayName = fbUser.displayName ?: displayName.ifEmpty { "Friction Member" },
+                                email = fbUser.email ?: email,
+                                photoUrl = fbUser.photoUrl?.toString() ?: "",
+                                guest = false,
+                                goal = existingUser?.goal ?: cachedUser.goal, // empty if fresh user
+                                age = if ((existingUser?.age ?: 0) > 0) existingUser!!.age else cachedUser.age,
+                                motivation = existingUser?.motivation ?: cachedUser.motivation
+                            )
+                            saveCachedUser(newUser)
+                            userRepository.createOrUpdateUser(newUser)
+                            newUser
                         }
                         
-                        saveCachedUser(user)
-                        userRepository.createOrUpdateUser(user)
-                        _authStatus.value = AuthStatus.Authenticated(user)
+                        if (finalUser.goal.isEmpty()) {
+                            Log.i(tag, "[AuthFlow] Step 9: Navigation decision -> First-time user detected. Directing to User Introduction page.")
+                        } else {
+                            Log.i(tag, "[AuthFlow] Step 9: Navigation decision -> Returning user detected (Goal: '${finalUser.goal}'). Directing directly to Dashboard.")
+                        }
+                        _authStatus.value = AuthStatus.Authenticated(finalUser)
                     } else {
-                        throw Exception("Firebase user is null after sign in")
+                        Log.e(tag, "[AuthFlow] Firebase user is null after sign in")
+                        _authStatus.value = AuthStatus.Error("Firebase authentication failed. Could not verify user credentials.")
                     }
                 } else {
-                    throw Exception("Unsupported credential type received.")
+                    Log.e(tag, "[AuthFlow] Unsupported credential type received: ${credential.type}")
+                    _authStatus.value = AuthStatus.Error("Received unsupported authentication credential format.")
                 }
+            } catch (e: GetCredentialCancellationException) {
+                Log.i(tag, "[AuthFlow] Google account selection cancelled by user. Remaining on Login screen.")
+                _authStatus.value = AuthStatus.Unauthenticated
             } catch (e: GetCredentialException) {
-                Log.w(tag, "Credential Manager exception (${e.javaClass.simpleName}): ${e.message}. Falling back gracefully to account session.")
-                loginWithOfflineFallback(guest = false)
+                Log.w(tag, "[AuthFlow] Credential Manager Exception (${e.javaClass.simpleName}): ${e.message}")
+                val isCancelled = e.message?.contains("cancel", ignoreCase = true) == true
+                if (isCancelled) {
+                    Log.i(tag, "[AuthFlow] Sign-in flow cancelled by user.")
+                    _authStatus.value = AuthStatus.Unauthenticated
+                } else {
+                    val userMsg = when {
+                        e.message?.contains("No credentials available", ignoreCase = true) == true ->
+                            "No Google accounts found on this device or Google Play Services requires updating. Please ensure a Google account is added in device settings."
+                        else -> "Google Sign-In failed: ${e.message ?: "Unable to complete Google Sign-In."}"
+                    }
+                    _authStatus.value = AuthStatus.Error(userMsg)
+                }
             } catch (e: Exception) {
-                Log.e(tag, "Google sign in failed, falling back to account session.", e)
-                loginWithOfflineFallback(guest = false)
+                Log.e(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}", e)
+                val msg = if (e.message?.contains("network", ignoreCase = true) == true) {
+                    "Network error during authentication. Please check your internet connection."
+                } else {
+                    "Authentication error: ${e.message ?: "Sign-in process failed."}"
+                }
+                _authStatus.value = AuthStatus.Error(msg)
             }
         }
     }
