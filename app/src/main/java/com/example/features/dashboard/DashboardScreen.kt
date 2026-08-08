@@ -59,12 +59,15 @@ fun DashboardScreen(
     val context = LocalContext.current
     val todayDateStr = DateFormat.getLongDateFormat(context).format(Date())
 
+    val localPrefs = remember { context.getSharedPreferences("friction_local_prefs", android.content.Context.MODE_PRIVATE) }
+    var localHasSeenEarlyBird by remember { mutableStateOf(localPrefs.getBoolean("hasSeenEarlyBirdPopup", false)) }
+
     var showEarlyBirdDialog by remember { mutableStateOf(false) }
     var showTrialExpiredDialog by remember { mutableStateOf(false) }
 
-    // Trigger Early Bird Dialog ONCE if user has not seen it yet and is not premium
-    LaunchedEffect(user.uid, user.hasSeenEarlyBirdOffer, user.premium) {
-        if (!user.hasSeenEarlyBirdOffer && !user.premium) {
+    // Trigger Early Bird Dialog ONCE if user has not seen it locally or in profile and is not premium
+    LaunchedEffect(user.uid, user.hasSeenEarlyBirdOffer, user.premium, localHasSeenEarlyBird) {
+        if (!localHasSeenEarlyBird && !user.hasSeenEarlyBirdOffer && !user.premium) {
             kotlinx.coroutines.delay(1200)
             showEarlyBirdDialog = true
         }
@@ -90,8 +93,10 @@ fun DashboardScreen(
     }
 
     if (showEarlyBirdDialog) {
-        // Mark as seen immediately when presented so it appears ONLY ONCE
+        // Mark as seen immediately in SharedPreferences and user profile so it appears ONLY ONCE
         LaunchedEffect(Unit) {
+            localPrefs.edit().putBoolean("hasSeenEarlyBirdPopup", true).apply()
+            localHasSeenEarlyBird = true
             onMarkOfferSeen()
         }
 
@@ -101,7 +106,10 @@ fun DashboardScreen(
             dismissButton = {},
             containerColor = Color.Transparent,
             shape = RoundedCornerShape(28.dp),
-            modifier = Modifier.padding( horizontal = 8.dp ),
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(horizontal = 0.dp),
             text = {
                 com.example.core.widgets.GlassCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -717,11 +725,11 @@ fun DashboardScreen(
                 )
 
                 QuickActionCard(
-                    title = "Leaderboards",
-                    desc = "Global rankings",
-                    icon = Icons.Default.Leaderboard,
-                    iconColor = FrictionError,
-                    onClick = { onNavigateToTab("friends") },
+                    title = "Permission Manager",
+                    desc = "System protection",
+                    icon = Icons.Default.Security,
+                    iconColor = FrictionPrimary,
+                    onClick = { onNavigateToTab("permissions") },
                     modifier = Modifier.weight(1f)
                 )
             }

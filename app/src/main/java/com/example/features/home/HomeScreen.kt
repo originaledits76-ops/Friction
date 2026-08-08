@@ -234,7 +234,8 @@ fun HomeScreen(
                                 onSignOut = { loginViewModel.logout() },
                                 homeViewModel = homeViewModel,
                                 onOpenPaywall = { showPaywall = true },
-                                onOpenFeedback = { selectedTab = "feedback" }
+                                onOpenFeedback = { selectedTab = "feedback" },
+                                onOpenPermissions = { selectedTab = "permissions" }
                             )
                         }
                         "profile" -> {
@@ -248,6 +249,12 @@ fun HomeScreen(
                         "feedback" -> {
                             FeedbackScreen(
                                 user = user,
+                                onBack = { selectedTab = "dashboard" }
+                            )
+                        }
+                        "permissions" -> {
+                            com.example.features.permission.PermissionManagerScreen(
+                                homeViewModel = homeViewModel,
                                 onBack = { selectedTab = "dashboard" }
                             )
                         }

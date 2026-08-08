@@ -322,22 +322,36 @@ private fun Step1FeaturesView() {
 
                 FeatureItemRow(
                     icon = Icons.Default.Lock,
-                    title = "Basic App Usage Limits",
-                    subtitle = "Set up to 3 custom app rules with basic barriers",
+                    title = "Maximum 2 App Limits",
+                    subtitle = "Set up to 2 active app limits with physical barriers",
                     isPremium = false
                 )
 
                 FeatureItemRow(
-                    icon = Icons.Default.Calculate,
-                    title = "Math & Typing Challenges",
-                    subtitle = "Standard mental challenges before opening restricted apps",
+                    icon = Icons.Default.FitnessCenter,
+                    title = "Push-up Challenge Only",
+                    subtitle = "Physical Push-up challenge before unlocking restricted apps",
                     isPremium = false
                 )
 
                 FeatureItemRow(
                     icon = Icons.Default.BarChart,
-                    title = "Daily Screentime Overview",
-                    subtitle = "Basic daily usage tracking and unlock counters",
+                    title = "Daily Screen Time Summary",
+                    subtitle = "Basic daily usage summary and total unlock stats",
+                    isPremium = false
+                )
+
+                FeatureItemRow(
+                    icon = Icons.Default.Group,
+                    title = "Maximum 2 Friends",
+                    subtitle = "Connect & view focus stats with up to 2 friends",
+                    isPremium = false
+                )
+
+                FeatureItemRow(
+                    icon = Icons.Default.Dashboard,
+                    title = "Core Dashboard",
+                    subtitle = "Essential focus controls, streak counters, and rule status",
                     isPremium = false
                 )
             }
@@ -484,43 +498,36 @@ private fun Step2PlanComparisonView() {
 
                 ComparisonTableRow(
                     feature = "App Usage Rules",
-                    freeValue = "Up to 3",
+                    freeValue = "Max 2",
                     paidValue = "Unlimited",
                     isHighlighted = true
                 )
 
                 ComparisonTableRow(
                     feature = "Friction Challenges",
-                    freeValue = "2 Types",
+                    freeValue = "Push-ups Only",
                     paidValue = "All 5 Types",
                     isHighlighted = true
                 )
 
                 ComparisonTableRow(
-                    feature = "Push-ups AI Camera",
-                    freeValue = "—",
+                    feature = "AI Pose & Object Scanner",
+                    freeValue = "Basic",
                     paidValue = "Included",
                     isHighlighted = true
                 )
 
                 ComparisonTableRow(
-                    feature = "Find Object AI",
-                    freeValue = "—",
-                    paidValue = "5 Custom",
-                    isHighlighted = true
-                )
-
-                ComparisonTableRow(
                     feature = "AI Habit Insights",
-                    freeValue = "—",
+                    freeValue = "Summary Only",
                     paidValue = "Full Access",
                     isHighlighted = true
                 )
 
                 ComparisonTableRow(
                     feature = "Leaderboards & Friends",
-                    freeValue = "Basic",
-                    paidValue = "Full Access",
+                    freeValue = "Max 2 Friends",
+                    paidValue = "Unlimited",
                     isHighlighted = false
                 )
 

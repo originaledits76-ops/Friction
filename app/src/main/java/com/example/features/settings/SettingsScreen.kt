@@ -58,7 +58,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     homeViewModel: HomeViewModel? = null,
     onOpenPaywall: () -> Unit = {},
-    onOpenFeedback: () -> Unit = {}
+    onOpenFeedback: () -> Unit = {},
+    onOpenPermissions: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showAppClassification by remember { mutableStateOf(false) }
@@ -293,6 +294,63 @@ fun SettingsScreen(
                         onToggle = { active -> onToggleRule(rule.id, active) },
                         onDelete = { onDeleteRule(rule.id) }
                     )
+                }
+
+                // Permission Manager Card
+                item {
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenPermissions() }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(FrictionPrimary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = "Permissions",
+                                        tint = FrictionPrimary
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "Permission Manager",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = "Manage usage, overlay, camera & battery permissions",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Permissions",
+                                tint = TextMuted
+                            )
+                        }
+                    }
                 }
 
                 // Feedback & Support Card

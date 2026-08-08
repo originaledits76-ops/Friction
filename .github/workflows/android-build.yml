@@ -34,4 +34,3 @@ jobs:
       with:
         name: app-debug-apk
         path: "**/build/outputs/apk/debug/*.apk"
-        
