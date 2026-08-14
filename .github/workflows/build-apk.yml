@@ -3,7 +3,7 @@ name: Build Production APK
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,8 +22,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # Step 1: Ensure Gradle wrapper exists (Generates gradlew if missing from repo)
-            # Step 1: Ensure Gradle wrapper exists & grant execution permissions
+      # Ensures wrapper exists and HAS executable permissions (+x)
       - name: Bootstrap Gradle Wrapper
         run: |
           if [ ! -f ./gradlew ]; then
@@ -32,8 +31,7 @@ jobs:
           fi
           chmod +x gradlew
 
-
-      # Step 2: Generate a Keystore on the fly inside the runner
+      # Generates release key inside runner
       - name: Generate Release Keystore
         run: |
           keytool -genkey -v \
@@ -46,24 +44,20 @@ jobs:
             -keypass MySecurePassword123 \
             -dname "CN=Android App, OU=Dev, O=Company, L=City, S=State, C=US"
 
-      # Step 3: Build Unsigned Release APK
+      # Build APK
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
 
-      # Step 4: Locate, Align, and Sign the generated APK
+      # Align & Sign
       - name: Sign Release APK
         run: |
-          # Find the built unsigned release APK
           UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           echo "Found unsigned APK at: $UNSIGNED_APK"
           
-          # Find Android SDK Build Tools (zipalign & apksigner)
           BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | tail -n 1)
           
-          # Zipalign the APK
           $BUILD_TOOLS_DIR/zipalign -v -p 4 "$UNSIGNED_APK" app-release-aligned.apk
           
-          # Sign the APK with the generated keystore
           $BUILD_TOOLS_DIR/apksigner sign \
             --ks release.keystore \
             --ks-pass pass:MySecurePassword123 \
@@ -72,7 +66,6 @@ jobs:
             --out production-app-release.apk \
             app-release-aligned.apk
 
-      # Step 5: Upload signed production APK as an artifact
       - name: Upload Production APK
         uses: actions/upload-artifact@v4
         with:
