@@ -1,5 +1,6 @@
 package com.example.features.settings
 
+import com.example.core.widgets.ResponsiveText
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -65,6 +66,8 @@ fun SettingsScreen(
     var showAppClassification by remember { mutableStateOf(false) }
     var showWizard by remember { mutableStateOf(false) }
     var showLockedSheet by remember { mutableStateOf(false) }
+    var lockedTitle by remember { mutableStateOf("Limit Threshold Reached") }
+    var lockedDesc by remember { mutableStateOf("Free users can create up to 2 active limits. Upgrade to Premium for unlimited app limits and custom friction rules.") }
 
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
 
@@ -74,8 +77,8 @@ fun SettingsScreen(
 
     if (showLockedSheet) {
         com.example.features.paywall.LockedFeatureSheet(
-            featureTitle = "Limit Threshold Reached",
-            featureDescription = "Free users can create up to 2 active limits. Upgrade to Premium for unlimited app limits and custom friction rules.",
+            featureTitle = lockedTitle,
+            featureDescription = lockedDesc,
             onUpgrade = {
                 showLockedSheet = false
                 onOpenPaywall()
@@ -121,13 +124,13 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(
+                        ResponsiveText(
                             text = "Friction Engine",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        Text(
+                        ResponsiveText(
                             text = "Control your attention.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
@@ -171,13 +174,13 @@ fun SettingsScreen(
                                 )
                             }
                             Column {
-                                Text(
+                                ResponsiveText(
                                     text = "Friction Premium",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
                                 )
-                                Text(
+                                ResponsiveText(
                                     text = "Unlock AI Coach & Unlimited Limits",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary
@@ -208,8 +211,8 @@ fun SettingsScreen(
                             Icon(Icons.Default.Warning, contentDescription = null, tint = FrictionError)
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Accessibility Required", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("Tap to enable the Friction blocker service in Settings.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                ResponsiveText("Accessibility Required", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                ResponsiveText("Tap to enable the Friction blocker service in Settings.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                             }
                             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextMuted)
                         }
@@ -232,13 +235,13 @@ fun SettingsScreen(
                             modifier = Modifier.size(80.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
+                        ResponsiveText(
                             text = "No limits yet.",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        Text(
+                        ResponsiveText(
                             text = "Create your first limit and make your screen time intentional.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
@@ -273,8 +276,20 @@ fun SettingsScreen(
                         text = "Add Limit",
                         icon = { Icon(Icons.Default.Add, contentDescription = null) },
                         onClick = {
-                            if (rules.size >= 2 && user?.premium != true) {
-                                showLockedSheet = true
+                            if (rules.size >= 2) {
+                                if (user != null && homeViewModel != null) {
+                                    homeViewModel.verifyPremiumEntitlement(user) { isEntitled ->
+                                        if (isEntitled) {
+                                            showWizard = true
+                                        } else {
+                                            lockedTitle = "Unlimited App Barriers"
+                                            lockedDesc = "Free users can create up to 2 app limits. Upgrade to Premium or start your 3-day trial to create unlimited app barriers."
+                                            showLockedSheet = true
+                                        }
+                                    }
+                                } else {
+                                    showLockedSheet = true
+                                }
                             } else {
                                 showWizard = true
                             }
@@ -285,7 +300,7 @@ fun SettingsScreen(
 
                 // Active Limits
                 item {
-                    Text("Your Limits", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    ResponsiveText("Your Limits", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 
                 items(rules) { rule ->
@@ -331,14 +346,14 @@ fun SettingsScreen(
                                     )
                                 }
                                 Column {
-                                    Text(
+                                    ResponsiveText(
                                         text = "Permission Manager",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = TextPrimary
                                     )
-                                    Text(
-                                        text = "Manage usage, overlay, camera & battery permissions",
+                                    ResponsiveText(
+                                        text = "Manage usage, overlay, activity & battery permissions",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary
                                     )
@@ -388,13 +403,13 @@ fun SettingsScreen(
                                     )
                                 }
                                 Column {
-                                    Text(
+                                    ResponsiveText(
                                         text = "Feedback & Support",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = TextPrimary
                                     )
-                                    Text(
+                                    ResponsiveText(
                                         text = "Report a bug, request features, or share thoughts",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary
@@ -423,9 +438,9 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            ResponsiveText(text = title, style = MaterialTheme.typography.labelSmall, color = TextMuted)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+            ResponsiveText(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
     }
 }
@@ -454,8 +469,8 @@ fun TemplateCard(title: String, description: String, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(text = description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                ResponsiveText(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+                ResponsiveText(text = description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
             Icon(Icons.Default.AddCircleOutline, contentDescription = "Apply", tint = FrictionPrimary)
         }
@@ -491,8 +506,8 @@ fun LimitCard(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(text = rule.targetAppName.takeIf { it.isNotEmpty() } ?: rule.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text(
+                        ResponsiveText(text = rule.targetAppName.takeIf { it.isNotEmpty() } ?: rule.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        ResponsiveText(
                             text = if (rule.thresholdMinutes > 0) "Every ${rule.thresholdMinutes} mins" else "Triggers on app open",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
@@ -507,11 +522,11 @@ fun LimitCard(
             }
             Spacer(modifier = Modifier.height(16.dp))
             val challengeLabel = when (rule.challengeType.uppercase()) {
-                "PUSHUPS", "PUSH-UPS" -> "${rule.challengeValue} Push-ups"
                 "MATH" -> "Math Puzzle"
                 "TYPING" -> "Typing Challenge"
-                "WALK" -> "Walking Challenge"
-                "FIND_OBJECT" -> "Find Object"
+                "BOX_BREATHING" -> "Box Breathing"
+                "PARAGRAPH_SUMMARY" -> "Paragraph Summary"
+                "REMEMBER_PATTERN", "PATTERN" -> "Remember the Pattern"
                 else -> rule.challengeType.replace("_", " ")
             }
             Row(
@@ -520,9 +535,9 @@ fun LimitCard(
             ) {
                 Icon(Icons.Default.Lock, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = challengeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = FrictionPrimary)
+                ResponsiveText(text = challengeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = FrictionPrimary)
                 Spacer(modifier = Modifier.weight(1f))
-                Text(text = "+${rule.penaltyXp} XP", style = MaterialTheme.typography.labelMedium, color = FrictionAccent, fontWeight = FontWeight.Bold)
+                ResponsiveText(text = "+${rule.penaltyXp} XP", style = MaterialTheme.typography.labelMedium, color = FrictionAccent, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(12.dp))
                 IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = TextMuted)

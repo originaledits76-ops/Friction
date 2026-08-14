@@ -3,13 +3,15 @@ package com.example.data.repository
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
-import kotlinx.coroutines.tasks.await
 
 class FirestoreService {
     private val tag = "FirestoreService"
 
-    val db: FirebaseFirestore
-        get() = SafeFirebase.firestore ?: throw IllegalStateException("Firebase Firestore is not available")
+    val isAvailable: Boolean
+        get() = SafeFirebase.isAvailable && SafeFirebase.firestore != null
+
+    val db: FirebaseFirestore?
+        get() = SafeFirebase.firestore
 
     init {
         try {
@@ -22,18 +24,19 @@ class FirestoreService {
                 firestoreInstance.firestoreSettings = settings
                 Log.d(tag, "Firestore offline persistence enabled successfully.")
             } else {
-                Log.w(tag, "Firestore is not available (SafeFirebase.firestore is null).")
+                Log.i(tag, "Firestore is not available (SafeFirebase.firestore is null). Operating in local offline mode.")
             }
         } catch (e: Exception) {
-            Log.w(tag, "Could not set Firestore settings: ${e.message}")
+            Log.i(tag, "Could not set Firestore settings: ${e.message}")
         }
     }
 
-    suspend fun <T> runSafe(action: suspend () -> T): T? {
+    suspend fun <T> runSafe(action: suspend (FirebaseFirestore) -> T): T? {
+        val database = db ?: return null
         return try {
-            action()
+            action(database)
         } catch (e: Exception) {
-            Log.e(tag, "Firestore operation failed: ${e.message}", e)
+            Log.i(tag, "Firestore operation skipped: ${e.message}")
             null
         }
     }

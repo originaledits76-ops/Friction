@@ -7,6 +7,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -51,29 +53,44 @@ data class ResponsiveDimensions(
 val LocalResponsiveDimensions = staticCompositionLocalOf { ResponsiveDimensions() }
 
 @Composable
-fun ProvideResponsiveDimensions(content: @Composable () -> Unit) {
+fun MyApplicationTheme(
+    content: @Composable () -> Unit
+) {
     val configuration = LocalConfiguration.current
     val width = configuration.screenWidthDp
-
+    
+    // Scale density for small screens to ensure content fits
+    val currentDensity = LocalDensity.current
+    val scaleFactor = if (width < 360) {
+        width.toFloat() / 360f
+    } else {
+        1f
+    }
+    
+    val newDensity = Density(
+        density = currentDensity.density * scaleFactor,
+        fontScale = currentDensity.fontScale * scaleFactor
+    )
+    
     val dimensions = when {
         width < 360 -> ResponsiveDimensions(
-            outerPadding = 12.dp,       // ~25% reduction
+            outerPadding = 12.dp,
             cardPadding = 10.dp,
             spacingSmall = 6.dp,
             spacingMedium = 12.dp,
             spacingLarge = 18.dp,
-            cardHeightLarge = 144.dp,   // 10% reduction
+            cardHeightLarge = 144.dp,
             cardHeightMedium = 108.dp,
             cardHeightSmall = 72.dp,
-            titleLargeSize = 19.sp,     // -3sp
-            displayLargeSize = 28.sp,   // -4sp
-            displayMediumSize = 25.sp,  // -3sp
-            displaySmallSize = 21.sp,   // -3sp
+            titleLargeSize = 19.sp,
+            displayLargeSize = 28.sp,
+            displayMediumSize = 25.sp,
+            displaySmallSize = 21.sp,
             iconSizeMedium = 20.dp,
             iconSizeLarge = 28.dp
         )
         width > 411 -> ResponsiveDimensions(
-            outerPadding = 24.dp,       // Increase spacing for larger screens
+            outerPadding = 24.dp,
             cardPadding = 16.dp,
             spacingSmall = 10.dp,
             spacingMedium = 20.dp,
@@ -88,26 +105,36 @@ fun ProvideResponsiveDimensions(content: @Composable () -> Unit) {
             iconSizeMedium = 26.dp,
             iconSizeLarge = 36.dp
         )
-        else -> ResponsiveDimensions() // Medium default (360-411dp)
+        else -> ResponsiveDimensions()
     }
+    
+    val dynamicTypography = androidx.compose.material3.Typography(
+        displayLarge = Typography.displayLarge.copy(fontSize = dimensions.displayLargeSize, lineHeight = (dimensions.displayLargeSize.value * 1.25f).sp),
+        displayMedium = Typography.displayMedium.copy(fontSize = dimensions.displayMediumSize, lineHeight = (dimensions.displayMediumSize.value * 1.25f).sp),
+        displaySmall = Typography.displaySmall.copy(fontSize = dimensions.displaySmallSize, lineHeight = (dimensions.displaySmallSize.value * 1.25f).sp),
+        headlineLarge = Typography.headlineLarge.copy(fontSize = dimensions.displayLargeSize, lineHeight = (dimensions.displayLargeSize.value * 1.25f).sp),
+        headlineMedium = Typography.headlineMedium.copy(fontSize = dimensions.displayMediumSize, lineHeight = (dimensions.displayMediumSize.value * 1.25f).sp),
+        headlineSmall = Typography.headlineSmall.copy(fontSize = dimensions.displaySmallSize, lineHeight = (dimensions.displaySmallSize.value * 1.25f).sp),
+        titleLarge = Typography.titleLarge.copy(fontSize = dimensions.titleLargeSize, lineHeight = (dimensions.titleLargeSize.value * 1.25f).sp),
+        titleMedium = Typography.titleMedium.copy(fontSize = if (width < 360) 16.sp else 18.sp, lineHeight = if (width < 360) 22.sp else 24.sp),
+        titleSmall = Typography.titleSmall.copy(fontSize = if (width < 360) 14.sp else 16.sp, lineHeight = if (width < 360) 20.sp else 22.sp),
+        bodyLarge = Typography.bodyLarge.copy(fontSize = if (width < 360) 14.sp else 16.sp, lineHeight = if (width < 360) 20.sp else 24.sp),
+        bodyMedium = Typography.bodyMedium.copy(fontSize = if (width < 360) 13.sp else 14.sp, lineHeight = if (width < 360) 18.sp else 20.sp),
+        bodySmall = Typography.bodySmall.copy(fontSize = if (width < 360) 11.sp else 12.sp, lineHeight = if (width < 360) 14.sp else 16.sp),
+        labelLarge = Typography.labelLarge.copy(fontSize = if (width < 360) 14.sp else 16.sp, lineHeight = if (width < 360) 18.sp else 20.sp),
+        labelMedium = Typography.labelMedium.copy(fontSize = if (width < 360) 11.sp else 12.sp, lineHeight = if (width < 360) 14.sp else 16.sp),
+        labelSmall = Typography.labelSmall.copy(fontSize = if (width < 360) 9.sp else 10.sp, lineHeight = if (width < 360) 12.sp else 14.sp)
+    )
 
-    CompositionLocalProvider(LocalResponsiveDimensions provides dimensions) {
-        content()
-    }
-}
-
-@Composable
-fun MyApplicationTheme(
-    content: @Composable () -> Unit
-) {
-    // We enforce our branded DarkColorScheme to showcase Friction's premium dark design aesthetic
-    MaterialTheme(
-        colorScheme = DarkColorScheme,
-        typography = Typography
+    CompositionLocalProvider(
+        LocalResponsiveDimensions provides dimensions,
+        LocalDensity provides newDensity
     ) {
-        ProvideResponsiveDimensions {
+        MaterialTheme(
+            colorScheme = DarkColorScheme,
+            typography = dynamicTypography
+        ) {
             content()
         }
     }
 }
-

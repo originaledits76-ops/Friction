@@ -16,13 +16,18 @@ import com.example.data.model.RuleType
 
 class FrictionConverters {
     @TypeConverter
-    fun fromRuleType(value: RuleType): String {
-        return value.name
+    fun fromRuleType(value: RuleType?): String {
+        return value?.name ?: RuleType.APP_LIMIT.name
     }
 
     @TypeConverter
-    fun toRuleType(value: String): RuleType {
-        return RuleType.valueOf(value)
+    fun toRuleType(value: String?): RuleType {
+        if (value.isNullOrBlank()) return RuleType.APP_LIMIT
+        return try {
+            RuleType.valueOf(value)
+        } catch (e: Exception) {
+            RuleType.APP_LIMIT
+        }
     }
 }
 

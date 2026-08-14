@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.core.widgets.ResponsiveText
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -25,6 +26,7 @@ import com.example.data.local.FrictionDatabase
 import com.example.data.model.FrictionRule
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.FrictionRepository
+import com.example.data.repository.SafeFirebase
 import com.example.data.service.FrictionAccessibilityService
 import com.example.data.service.ScreenTimeService
 import com.example.features.auth.LoginViewModel
@@ -36,7 +38,12 @@ import androidx.compose.runtime.getValue
 import com.example.ui.theme.*
 import com.google.firebase.FirebaseApp
 
-data class BlockConfig(val packageName: String, val ruleId: String, val ruleName: String)
+data class BlockConfig(
+    val packageName: String,
+    val ruleId: String,
+    val ruleName: String,
+    val isExpired: Boolean = false
+)
 
 class MainActivity : ComponentActivity() {
     
@@ -58,6 +65,7 @@ class MainActivity : ComponentActivity() {
         
         // Attempt Firebase Initialization and set up core components safely
         tryInitServices()
+        com.example.features.ads.AdManager.initialize(applicationContext)
 
         // Check incoming intent for background block triggers
         checkIntentForBlock(intent)
@@ -71,11 +79,12 @@ class MainActivity : ComponentActivity() {
                         errorMessage = error,
                         onRetry = {
                             tryInitServices()
+        com.example.features.ads.AdManager.initialize(applicationContext)
                         }
                     )
                 } else {
-                    val currentLoginViewModel = loginViewModel
-                    val currentHomeViewModel = homeViewModel
+                    val currentLoginViewModel = loginViewModel ?: authRepository?.let { LoginViewModel(it) } ?: LoginViewModel(AuthRepository(applicationContext))
+                    val currentHomeViewModel = homeViewModel ?: frictionRepository?.let { HomeViewModel(it, applicationContext) } ?: HomeViewModel(FrictionRepository(applicationContext, FrictionDatabase.getDatabase(applicationContext).frictionDao(), ScreenTimeService(applicationContext)), applicationContext)
                     
                     if (currentLoginViewModel != null && currentHomeViewModel != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
@@ -101,20 +110,44 @@ class MainActivity : ComponentActivity() {
                                         name = config.ruleName,
                                         targetAppPackage = config.packageName
                                     ),
-                                    onComplete = { xp, coins ->
-                                        // Grant bypass permissions to the target app package
-                                        FrictionAccessibilityService.unlockAppTemporarily(config.packageName, 15)
+                                    isExpiredMode = config.isExpired,
+                                    onComplete = { xp, coins, durationMinutes ->
+                                        // Grant temporary unlock allowance to the specific target app package
+                                        FrictionAccessibilityService.unlockAppTemporarily(applicationContext, config.packageName, durationMinutes)
                                         currentHomeViewModel.completeChallenge(config.ruleName, "TASK", xp, coins, 20)
                                         activeBlockedAppConfig = null
+
+                                        // Launch target blocked app
+                                        try {
+                                            val launchIntent = packageManager.getLaunchIntentForPackage(config.packageName)
+                                            if (launchIntent != null) {
+                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                startActivity(launchIntent)
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("MainActivity", "Failed to launch app ${config.packageName}", e)
+                                        }
                                     },
-                                    onSkip = { xpPenalty ->
+                                    onSkip = { xpPenalty, durationMinutes ->
                                         // Bypass target app anyway but apply active penalty
-                                        FrictionAccessibilityService.unlockAppTemporarily(config.packageName, 15)
+                                        FrictionAccessibilityService.unlockAppTemporarily(applicationContext, config.packageName, durationMinutes)
                                         currentHomeViewModel.skipChallenge(config.ruleName, "TASK_SKIP", xpPenalty)
                                         activeBlockedAppConfig = null
+
+                                        // Launch target blocked app
+                                        try {
+                                            val launchIntent = packageManager.getLaunchIntentForPackage(config.packageName)
+                                            if (launchIntent != null) {
+                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                startActivity(launchIntent)
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("MainActivity", "Failed to launch app ${config.packageName}", e)
+                                        }
                                     },
                                     onCancel = {
                                         activeBlockedAppConfig = null
+                                        currentHomeViewModel.onCloseBlockedApp()
                                         // Securely send the user back to the launcher/home screen
                                         try {
                                             val homeIntent = Intent(Intent.ACTION_MAIN).apply {
@@ -137,29 +170,49 @@ class MainActivity : ComponentActivity() {
 
     private fun tryInitServices() {
         try {
-            // 1. Initialize Firebase App safely without letting it crash the whole app boot
-            try {
-                FirebaseApp.initializeApp(applicationContext)
-                Log.d("MainActivity", "FirebaseApp initialized successfully.")
-            } catch (e: Exception) {
-                Log.e("MainActivity", "FirebaseApp.initializeApp failed: ${e.message}", e)
-            }
-            
-            // 2. Initialize Core Repositories and ViewModels safely (always works offline)
-            authRepository = AuthRepository(applicationContext)
-            loginViewModel = LoginViewModel(authRepository!!)
+            SafeFirebase.initIfNecessary(applicationContext)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "SafeFirebase init warning: ${e.message}")
+        }
 
+        try {
+            if (authRepository == null) {
+                authRepository = AuthRepository(applicationContext)
+            }
+            if (loginViewModel == null && authRepository != null) {
+                loginViewModel = LoginViewModel(authRepository!!)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "AuthRepository/LoginViewModel init warning: ${e.message}")
+        }
+
+        try {
             val database = FrictionDatabase.getDatabase(applicationContext)
             val screenTimeService = ScreenTimeService(applicationContext)
-            frictionRepository = FrictionRepository(applicationContext, database.frictionDao(), screenTimeService)
-            homeViewModel = HomeViewModel(frictionRepository!!, applicationContext)
-            
-            // Reset error if local initialization is successful (ignore Firebase initialization warnings)
-            firebaseInitError = null
-            Log.d("MainActivity", "Core services initialized successfully.")
+            if (frictionRepository == null) {
+                frictionRepository = FrictionRepository(applicationContext, database.frictionDao(), screenTimeService)
+            }
+            if (homeViewModel == null && frictionRepository != null) {
+                homeViewModel = HomeViewModel(frictionRepository!!, applicationContext)
+            }
         } catch (e: Exception) {
-            Log.e("MainActivity", "Core services initialization failed", e)
-            firebaseInitError = e.localizedMessage ?: "Unable to establish secure offline/local database connection."
+            Log.e("MainActivity", "FrictionRepository/HomeViewModel init warning: ${e.message}")
+        }
+
+        try {
+            com.example.features.ads.AdManager.initialize(applicationContext)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "AdManager init warning: ${e.message}")
+        }
+
+        firebaseInitError = null
+        Log.d("MainActivity", "Core services initialized successfully.")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        com.example.features.ads.AdManager.handleAppOpen(applicationContext, this) {
+            activeBlockedAppConfig == null
         }
     }
 
@@ -173,11 +226,13 @@ class MainActivity : ComponentActivity() {
         val blockPackage = intent.getStringExtra("BLOCK_PACKAGE")
         val blockRuleId = intent.getStringExtra("BLOCK_RULE_ID")
         val blockRuleName = intent.getStringExtra("BLOCK_RULE_NAME")
+        val isExpired = intent.getBooleanExtra("BLOCK_IS_EXPIRED", false)
         if (!blockPackage.isNullOrEmpty() && !blockRuleId.isNullOrEmpty()) {
             activeBlockedAppConfig = BlockConfig(
                 packageName = blockPackage,
                 ruleId = blockRuleId,
-                ruleName = blockRuleName ?: "App Limit"
+                ruleName = blockRuleName ?: "App Limit",
+                isExpired = isExpired
             )
         }
     }
@@ -210,7 +265,7 @@ fun FirebaseErrorScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            Text(
+            ResponsiveText(
                 text = "Secure Sync Offline",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
@@ -220,7 +275,7 @@ fun FirebaseErrorScreen(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            Text(
+            ResponsiveText(
                 text = "Friction is unable to establish a secure cloud connection to sync your brand assets, buddies, and rules. Please verify your internet connection.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
@@ -240,7 +295,7 @@ fun FirebaseErrorScreen(
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Text(
+                    ResponsiveText(
                         text = "TECHNICAL DETAILS",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
@@ -248,7 +303,7 @@ fun FirebaseErrorScreen(
                         letterSpacing = 0.5.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(
+                    ResponsiveText(
                         text = errorMessage,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
@@ -270,7 +325,7 @@ fun FirebaseErrorScreen(
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text(
+                ResponsiveText(
                     text = "Retry Sync Connection",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold

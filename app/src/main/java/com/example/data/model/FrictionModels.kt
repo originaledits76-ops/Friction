@@ -22,7 +22,7 @@ data class FrictionRule(
     val createdAt: Long = System.currentTimeMillis(),
     val targetAppName: String = "",
     val triggerType: String = "TIME",
-    val challengeType: String = "PUSHUPS",
+    val challengeType: String = "MATH",
     val challengeValue: Int = 10
 
 )
@@ -96,7 +96,26 @@ data class FriendInfo(
     val currentStreak: Int = 0,
     val level: Int = 1,
     val xp: Int = 0,
-    val status: String = "FRIEND" // "FRIEND", "SENT", "RECEIVED"
+    val status: String = "FRIEND" // "FRIEND", "SENT", "RECEIVED", "NONE"
+)
+
+@Keep
+data class BuddyAppUsage(
+    val packageName: String = "",
+    val appName: String = "",
+    val totalTimeMs: Long = 0L,
+    val classification: String = "DISTRACTING" // "DISTRACTING" or "PRODUCTIVE"
+)
+
+@Keep
+data class BuddyDetails(
+    val uid: String = "",
+    val displayName: String = "",
+    val level: Int = 1,
+    val xp: Int = 0,
+    val currentStreak: Int = 0,
+    val todayScreenTimeMs: Long = 0L,
+    val topAppsToday: List<BuddyAppUsage> = emptyList()
 )
 
 @Keep

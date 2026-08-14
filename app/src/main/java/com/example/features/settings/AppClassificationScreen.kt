@@ -1,5 +1,6 @@
 package com.example.features.settings
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -90,7 +91,7 @@ fun AppClassificationScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
+                ResponsiveText(
                     text = "App Classification",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
@@ -118,7 +119,7 @@ fun AppClassificationScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(
+                    ResponsiveText(
                         text = "Friction uses these classifications to intelligently restrict distracting applications while protecting productive workflow tools.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
@@ -141,7 +142,7 @@ fun AppClassificationScreen(
                 TextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search apps...", color = TextMuted) },
+                    placeholder = { ResponsiveText("Search apps...", color = TextMuted) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -182,17 +183,17 @@ fun AppClassificationScreen(
                         modifier = Modifier.background(DarkSurface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Name (A-Z)", color = TextPrimary) },
+                            text = { ResponsiveText("Name (A-Z)", color = TextPrimary) },
                             leadingIcon = { if (selectedSort == "AZ") Icon(Icons.Default.Check, contentDescription = null, tint = FrictionPrimary) },
                             onClick = { selectedSort = "AZ"; showSortMenu = false }
                         )
                         DropdownMenuItem(
-                            text = { Text("Name (Z-A)", color = TextPrimary) },
+                            text = { ResponsiveText("Name (Z-A)", color = TextPrimary) },
                             leadingIcon = { if (selectedSort == "ZA") Icon(Icons.Default.Check, contentDescription = null, tint = FrictionPrimary) },
                             onClick = { selectedSort = "ZA"; showSortMenu = false }
                         )
                         DropdownMenuItem(
-                            text = { Text("Category", color = TextPrimary) },
+                            text = { ResponsiveText("Category", color = TextPrimary) },
                             leadingIcon = { if (selectedSort == "CATEGORY") Icon(Icons.Default.Check, contentDescription = null, tint = FrictionPrimary) },
                             onClick = { selectedSort = "CATEGORY"; showSortMenu = false }
                         )
@@ -219,7 +220,7 @@ fun AppClassificationScreen(
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedFilter = filter },
-                        label = { Text(label) },
+                        label = { ResponsiveText(label) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = FrictionPrimary.copy(alpha = 0.15f),
                             selectedLabelColor = FrictionPrimary,
@@ -254,7 +255,7 @@ fun AppClassificationScreen(
                                 .padding(vertical = 48.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
+                            ResponsiveText(
                                 "No applications match your criteria.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary,
@@ -315,7 +316,7 @@ fun ClassificationCard(
                         )
                     } else {
                         // Fallback letter avatar
-                        Text(
+                        ResponsiveText(
                             text = appInfo.appName.take(1).uppercase(),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
@@ -327,14 +328,14 @@ fun ClassificationCard(
                 Spacer(modifier = Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    ResponsiveText(
                         text = appInfo.appName,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
+                    ResponsiveText(
                         text = appInfo.packageName,
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
@@ -393,7 +394,7 @@ fun ClassificationChip(
             modifier = Modifier.padding(vertical = 10.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
+            ResponsiveText(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,

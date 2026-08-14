@@ -39,7 +39,8 @@ class ChallengeRepository(
         }
 
         // 2. Save to Firestore if online
-        if (targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
+        val db = firestoreService.db
+        if (db == null || targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
 
         val docId = entry.id
         try {
@@ -55,7 +56,7 @@ class ChallengeRepository(
                 "timestamp" to System.currentTimeMillis()
             )
 
-            firestoreService.db.collection("challenge_history").document(docId)
+            db.collection("challenge_history").document(docId)
                 .set(historyMap, SetOptions.merge()).await()
             FirebaseDebugLogger.logWriteSuccess("challenge_history", docId)
             Log.i(tag, "[ChallengeRepository] Firestore write success for history ID '$docId' (User: $targetUid)")
@@ -70,11 +71,12 @@ class ChallengeRepository(
     }
 
     suspend fun fetchAndSyncChallengeHistoryFromCloud(userUid: String): List<ChallengeHistoryEntry> {
-        if (userUid.isEmpty() || userUid.startsWith("offline_") || userUid.startsWith("guest_")) return emptyList()
+        val db = firestoreService.db
+        if (db == null || userUid.isEmpty() || userUid.startsWith("offline_") || userUid.startsWith("guest_")) return emptyList()
 
         return try {
             Log.d(tag, "[ChallengeRepository] Querying Firestore for challenge history of UID '$userUid'...")
-            val querySnapshot = firestoreService.db.collection("challenge_history")
+            val querySnapshot = db.collection("challenge_history")
                 .whereEqualTo("userUid", userUid)
                 .get().await()
 

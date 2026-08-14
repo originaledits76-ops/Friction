@@ -12,8 +12,8 @@ import com.example.data.model.FrictionRule
 import com.example.data.model.RuleType
 import com.example.data.repository.FrictionRepository
 import com.example.data.service.ScreenTimeService
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -63,11 +63,29 @@ class HomeViewModel(
     private val _todayScreenTimeMs = MutableStateFlow(0L)
     val todayScreenTimeMs: StateFlow<Long> = _todayScreenTimeMs.asStateFlow()
 
+    private val _weeklyScreenTimeMs = MutableStateFlow(0L)
+    val weeklyScreenTimeMs: StateFlow<Long> = _weeklyScreenTimeMs.asStateFlow()
+
+    private val _monthlyScreenTimeMs = MutableStateFlow(0L)
+    val monthlyScreenTimeMs: StateFlow<Long> = _monthlyScreenTimeMs.asStateFlow()
+
     private val _topApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     val topApps: StateFlow<List<AppUsageInfo>> = _topApps.asStateFlow()
 
+    private val _weeklyTopApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+    val weeklyTopApps: StateFlow<List<AppUsageInfo>> = _weeklyTopApps.asStateFlow()
+
+    private val _monthlyTopApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+    val monthlyTopApps: StateFlow<List<AppUsageInfo>> = _monthlyTopApps.asStateFlow()
+
     private val _detailedAnalytics = MutableStateFlow<ScreenTimeService.DetailedAnalytics?>(null)
     val detailedAnalytics: StateFlow<ScreenTimeService.DetailedAnalytics?> = _detailedAnalytics.asStateFlow()
+
+    private val _weeklyDetailedAnalytics = MutableStateFlow<ScreenTimeService.DetailedAnalytics?>(null)
+    val weeklyDetailedAnalytics: StateFlow<ScreenTimeService.DetailedAnalytics?> = _weeklyDetailedAnalytics.asStateFlow()
+
+    private val _monthlyDetailedAnalytics = MutableStateFlow<ScreenTimeService.DetailedAnalytics?>(null)
+    val monthlyDetailedAnalytics: StateFlow<ScreenTimeService.DetailedAnalytics?> = _monthlyDetailedAnalytics.asStateFlow()
 
     // Database Flows
     val rules: StateFlow<List<FrictionRule>> = repository.allRules
@@ -79,14 +97,48 @@ class HomeViewModel(
     val appClassifications: StateFlow<List<com.example.data.model.AppClassification>> = repository.allAppClassifications
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Daily/Weekly/Monthly History
-    val dailyHistory: Map<String, Long> = repository.getDailyHistory()
-    val weeklyHistory: Map<String, Long> = repository.getWeeklyHistory()
-    val monthlyHistory: Map<String, Long> = repository.getMonthlyHistory()
+    // Daily/Weekly/Monthly History StateFlows for real-time reactivity
+    private val _dailyHistory = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val dailyHistory: StateFlow<Map<String, Long>> = _dailyHistory.asStateFlow()
+
+    private val _weeklyHistory = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val weeklyHistory: StateFlow<Map<String, Long>> = _weeklyHistory.asStateFlow()
+
+    private val _monthlyHistory = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val monthlyHistory: StateFlow<Map<String, Long>> = _monthlyHistory.asStateFlow()
+
+    // Today's hourly screen time breakdown for line graph (Hour 0..23 -> duration in ms)
+    private val _todayHourlyScreenTimeMs = MutableStateFlow<Map<Int, Long>>(emptyMap())
+    val todayHourlyScreenTimeMs: StateFlow<Map<Int, Long>> = _todayHourlyScreenTimeMs.asStateFlow()
+
+    // Configured Daily Screen Time Limit (0L = No Limit Set)
+    private val _dailyScreenTimeLimitMs = MutableStateFlow(prefs.getLong("daily_limit_ms", 0L))
+    val dailyScreenTimeLimitMs: StateFlow<Long> = _dailyScreenTimeLimitMs.asStateFlow()
+
+    fun setDailyScreenTimeLimit(limitMs: Long) {
+        _dailyScreenTimeLimitMs.value = limitMs
+        prefs.edit().apply {
+            putLong("daily_limit_ms", limitMs)
+            if (activeUserUid.isNotBlank()) {
+                putLong("${activeUserUid}_daily_limit_ms", limitMs)
+            }
+            apply()
+        }
+        Log.i(tag, "[HomeViewModel] Set daily screen time limit to $limitMs ms (Active User: '$activeUserUid')")
+    }
 
     // Buddy & Friends Lists
     private val _friends = MutableStateFlow<List<FriendInfo>>(emptyList())
     val friends: StateFlow<List<FriendInfo>> = _friends.asStateFlow()
+
+    private val _browseFriendsList = MutableStateFlow<List<FriendInfo>>(emptyList())
+    val browseFriendsList: StateFlow<List<FriendInfo>> = _browseFriendsList.asStateFlow()
+
+    private val _selectedBuddyDetails = MutableStateFlow<com.example.data.model.BuddyDetails?>(null)
+    val selectedBuddyDetails: StateFlow<com.example.data.model.BuddyDetails?> = _selectedBuddyDetails.asStateFlow()
+
+    private val _isBuddyDetailsLoading = MutableStateFlow(false)
+    val isBuddyDetailsLoading: StateFlow<Boolean> = _isBuddyDetailsLoading.asStateFlow()
 
     // Leaderboards
     private val _leaderboardWeekly = MutableStateFlow<List<FriendInfo>>(emptyList())
@@ -108,12 +160,234 @@ class HomeViewModel(
     private val _userStreak = MutableStateFlow(prefs.getInt("user_streak", 0))
     val userStreak: StateFlow<Int> = _userStreak.asStateFlow()
 
+    private val currentMonthStr: String
+        get() = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+
+    private val todayDateStr: String
+        get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+    private val _streakSaversRemaining = MutableStateFlow(
+        if (prefs.getString("streak_savers_month", "") == SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())) {
+            prefs.getInt("streak_savers_remaining", 4)
+        } else {
+            4
+        }
+    )
+    val streakSaversRemaining: StateFlow<Int> = _streakSaversRemaining.asStateFlow()
+
+    private val _loginStreakDays = MutableStateFlow(prefs.getInt("login_bonus_streak_days", 1))
+    val loginStreakDays: StateFlow<Int> = _loginStreakDays.asStateFlow()
+
+    private val _todayResistanceXp = MutableStateFlow(
+        if (prefs.getString("resistance_xp_date", "") == SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) {
+            prefs.getInt("resistance_xp_count", 0)
+        } else {
+            0
+        }
+    )
+    val todayResistanceXp: StateFlow<Int> = _todayResistanceXp.asStateFlow()
+
+    private val _todayDailyLimitRewarded = MutableStateFlow(
+        prefs.getStringSet("daily_limit_rewarded_dates", emptySet())
+            ?.contains(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) == true
+    )
+    val todayDailyLimitRewarded: StateFlow<Boolean> = _todayDailyLimitRewarded.asStateFlow()
+
+    private var lastCloseAppTimestamp = 0L
+
     private val _customObjects = MutableStateFlow<List<String>>(
         prefs.getString("custom_objects", "Water Bottle,Notebook,Backpack,Pen,Chair")
             ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
             ?: listOf("Water Bottle", "Notebook", "Backpack", "Pen", "Chair")
     )
     val customObjects: StateFlow<List<String>> = _customObjects.asStateFlow()
+
+    // AI Personal Insights Service
+    private val geminiService = com.example.data.service.GeminiService(context)
+    
+    private val _aiCoachingState = MutableStateFlow("Tap 'Analyze My Habits' to generate personalized insights.")
+    val aiCoachingState: StateFlow<String> = _aiCoachingState.asStateFlow()
+
+    private val _isAiLoading = MutableStateFlow(false)
+    val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
+
+    private val _unlockedBadges = MutableStateFlow<List<String>>(
+        prefs.getString("unlocked_badges", "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+    )
+    val unlockedBadges: StateFlow<List<String>> = _unlockedBadges.asStateFlow()
+
+    private val _challengeHistory = MutableStateFlow<List<ChallengeHistoryEntry>>(
+        prefs.getStringSet("challenge_history", emptySet())?.mapNotNull { ChallengeHistoryEntry.deserialize(it) }?.sortedByDescending { it.dateStr } ?: emptyList()
+    )
+    val challengeHistory: StateFlow<List<ChallengeHistoryEntry>> = _challengeHistory.asStateFlow()
+
+    // Level-up Celebration States
+    private val _isLevelUpPending = MutableStateFlow(false)
+    val isLevelUpPending: StateFlow<Boolean> = _isLevelUpPending.asStateFlow()
+
+    private val _lastLevelUpFrom = MutableStateFlow(1)
+    val lastLevelUpFrom: StateFlow<Int> = _lastLevelUpFrom.asStateFlow()
+
+    private val _lastLevelUpTo = MutableStateFlow(2)
+    val lastLevelUpTo: StateFlow<Int> = _lastLevelUpTo.asStateFlow()
+
+    private var activeUserUid: String = ""
+
+    init {
+        checkMonthlySaverReset()
+        checkDailyLoginBonus()
+        refreshMetrics()
+        loadBuddiesAndLeaderboard("")
+        startRealTimeUsagePolling()
+    }
+
+    fun checkMonthlySaverReset() {
+        val savedMonth = prefs.getString("streak_savers_month", "")
+        val thisMonth = currentMonthStr
+        if (savedMonth != thisMonth) {
+            _streakSaversRemaining.value = 4
+            prefs.edit().apply {
+                putString("streak_savers_month", thisMonth)
+                putInt("streak_savers_remaining", 4)
+                apply()
+            }
+        }
+    }
+
+    fun checkDailyLoginBonus() {
+        val today = todayDateStr
+        val lastLogin = prefs.getString("last_login_date", "")
+        if (lastLogin == today) {
+            _loginStreakDays.value = prefs.getInt("login_bonus_streak_days", 1)
+            return
+        }
+
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+
+        val currentStreak = if (lastLogin == yesterday) {
+            prefs.getInt("login_bonus_streak_days", 0) + 1
+        } else {
+            1
+        }
+
+        val bonusXp = currentStreak * 5
+
+        prefs.edit().apply {
+            putString("last_login_date", today)
+            putInt("login_bonus_streak_days", currentStreak)
+            apply()
+        }
+
+        _loginStreakDays.value = currentStreak
+        addXp(bonusXp, "Daily Login Bonus (Day $currentStreak)")
+    }
+
+    fun onCloseBlockedApp() {
+        val now = System.currentTimeMillis()
+        if (now - lastCloseAppTimestamp > 2500L) {
+            lastCloseAppTimestamp = now
+            val today = todayDateStr
+            val lastDate = prefs.getString("resistance_xp_date", "")
+            var currentCount = prefs.getInt("resistance_xp_count", 0)
+
+            if (lastDate != today) {
+                currentCount = 0
+                prefs.edit().putString("resistance_xp_date", today).apply()
+            }
+
+            if (currentCount < 10) {
+                currentCount++
+                prefs.edit().putInt("resistance_xp_count", currentCount).apply()
+                _todayResistanceXp.value = currentCount
+                addXp(1, "Closed Blocked App ($currentCount/10)")
+            } else {
+                _todayResistanceXp.value = 10
+            }
+        }
+    }
+
+    fun checkDailyLimitXpReward() {
+        val limitMs = _dailyScreenTimeLimitMs.value
+        if (limitMs <= 0L) return
+
+        val today = todayDateStr
+        val rewardedSet = prefs.getStringSet("daily_limit_rewarded_dates", emptySet())?.toMutableSet() ?: mutableSetOf()
+
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+
+        val lastEvaluated = prefs.getString("last_evaluated_limit_date", "")
+        if (lastEvaluated != yesterday && lastEvaluated != today) {
+            val yesterdayStart = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+            val yesterdayEnd = cal.apply { set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999) }.timeInMillis
+
+            val usageList = repository.getUsageDataForPeriod(yesterdayStart, yesterdayEnd)
+            val yesterdayUsage: Long = usageList.sumOf { it.totalTimeInForegroundMs }
+
+            if (yesterdayUsage <= limitMs && !rewardedSet.contains(yesterday)) {
+                rewardedSet.add(yesterday)
+                prefs.edit().putStringSet("daily_limit_rewarded_dates", rewardedSet).apply()
+                addXp(30, "Under Daily Limit Reward ($yesterday)")
+                _userStreak.value += 1
+                saveProgress()
+            } else if (yesterdayUsage > limitMs) {
+                checkMonthlySaverReset()
+                val remaining = _streakSaversRemaining.value
+                if (remaining > 0) {
+                    _streakSaversRemaining.value = remaining - 1
+                    prefs.edit().putInt("streak_savers_remaining", _streakSaversRemaining.value).apply()
+                } else {
+                    _userStreak.value = 0
+                    saveProgress()
+                }
+            }
+            prefs.edit().putString("last_evaluated_limit_date", yesterday).apply()
+        }
+
+        _todayDailyLimitRewarded.value = rewardedSet.contains(today)
+    }
+
+    fun addXp(amount: Int, reason: String) {
+        if (amount <= 0) return
+        var currentXp = _userXp.value + amount
+        var currentLevel = _userLevel.value
+        val oldLevel = currentLevel
+        var xpNeeded = currentLevel * 100
+
+        while (currentXp >= xpNeeded) {
+            currentXp -= xpNeeded
+            currentLevel++
+            xpNeeded = currentLevel * 100
+        }
+
+        _userXp.value = currentXp
+        _userLevel.value = currentLevel
+
+        if (currentLevel > oldLevel) {
+            _lastLevelUpFrom.value = oldLevel
+            _lastLevelUpTo.value = currentLevel
+            _isLevelUpPending.value = true
+        }
+
+        saveProgress()
+
+        if (activeUserUid.isNotEmpty()) {
+            viewModelScope.launch {
+                repository.syncUserProfileProgress(
+                    userUid = activeUserUid,
+                    level = _userLevel.value,
+                    xp = _userXp.value,
+                    coins = _userCoins.value,
+                    streak = _userStreak.value,
+                    unlockedBadges = _unlockedBadges.value,
+                    customObjects = _customObjects.value
+                )
+            }
+        }
+    }
 
     fun updateCustomObjects(objects: List<String>) {
         val clean = objects.map { it.trim() }.filter { it.isNotEmpty() }.take(5)
@@ -149,25 +423,56 @@ class HomeViewModel(
         }
     }
 
-    // AI Personal Insights Service
-    private val geminiService = com.example.data.service.GeminiService()
-    
-    private val _aiCoachingState = MutableStateFlow("Tap 'Analyze My Habits' to generate personalized insights.")
-    val aiCoachingState: StateFlow<String> = _aiCoachingState.asStateFlow()
+    fun hasConsumedRewardedAiAnalysisToday(): Boolean {
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        val consumedDate = prefs.getString("rewarded_ai_analysis_consumed_date", "")
+        return consumedDate == todayStr
+    }
 
-    private val _isAiLoading = MutableStateFlow(false)
-    val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
+    fun markRewardedAiAnalysisConsumed() {
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        prefs.edit().putString("rewarded_ai_analysis_consumed_date", todayStr).apply()
+    }
 
-    fun generateAiCoaching() {
+    fun markRewardedAiConsumed() {
+        markRewardedAiAnalysisConsumed()
+    }
+
+    fun generateAiCoaching(
+        user: com.example.data.model.User,
+        onPaywallRequired: () -> Unit,
+        onAdPromptRequired: () -> Unit = {},
+        onShowRewardedAdDialog: () -> Unit = onAdPromptRequired
+    ) {
+        verifyPremiumEntitlement(user) { isEntitled ->
+            if (isEntitled) {
+                executeAiCoachingDirectly()
+            } else {
+                if (hasConsumedRewardedAiAnalysisToday()) {
+                    onPaywallRequired()
+                } else {
+                    onAdPromptRequired()
+                    onShowRewardedAdDialog()
+                }
+            }
+        }
+    }
+
+    fun generateAiCoachingForced(user: com.example.data.model.User? = null) {
+        executeAiCoachingDirectly()
+    }
+
+    fun executeAiCoachingDirectly() {
         viewModelScope.launch {
             _isAiLoading.value = true
             _aiCoachingState.value = "Analyzing your habits..."
             try {
+                refreshMetricsInternal()
                 val todayTime = _todayScreenTimeMs.value
                 val apps = _topApps.value
                 val detailed = _detailedAnalytics.value
                 val activeLimits = rules.value.count { it.active }
-                
+
                 val unlocks = detailed?.unlockCount ?: 0
                 val avgSession = detailed?.averageSessionMs ?: 0L
                 val longestSession = detailed?.longestSessionMs ?: 0L
@@ -197,31 +502,15 @@ class HomeViewModel(
         }
     }
 
-    private val _unlockedBadges = MutableStateFlow<List<String>>(
-        prefs.getString("unlocked_badges", "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
-    )
-    val unlockedBadges: StateFlow<List<String>> = _unlockedBadges.asStateFlow()
-
-    private val _challengeHistory = MutableStateFlow<List<ChallengeHistoryEntry>>(
-        prefs.getStringSet("challenge_history", emptySet())?.mapNotNull { ChallengeHistoryEntry.deserialize(it) }?.sortedByDescending { it.dateStr } ?: emptyList()
-    )
-    val challengeHistory: StateFlow<List<ChallengeHistoryEntry>> = _challengeHistory.asStateFlow()
-
-    // Level-up Celebration States
-    private val _isLevelUpPending = MutableStateFlow(false)
-    val isLevelUpPending: StateFlow<Boolean> = _isLevelUpPending.asStateFlow()
-
-    private val _lastLevelUpFrom = MutableStateFlow(1)
-    val lastLevelUpFrom: StateFlow<Int> = _lastLevelUpFrom.asStateFlow()
-
-    private val _lastLevelUpTo = MutableStateFlow(2)
-    val lastLevelUpTo: StateFlow<Int> = _lastLevelUpTo.asStateFlow()
-
-    private var activeUserUid: String = ""
-
-    init {
-        refreshMetrics()
-        loadBuddiesAndLeaderboard("")
+    private fun startRealTimeUsagePolling() {
+        viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(5000L) // Real-time poll every 5 seconds
+                if (_isPermissionGranted.value) {
+                    refreshMetricsInternal()
+                }
+            }
+        }
     }
 
     // Load user specifically
@@ -247,6 +536,9 @@ class HomeViewModel(
         _userStreak.value = uidStreak
         _unlockedBadges.value = uidBadges
         _customObjects.value = uidCustomObjs
+
+        val uidDailyLimit = prefs.getLong("${userUid}_daily_limit_ms", prefs.getLong("daily_limit_ms", 0L))
+        _dailyScreenTimeLimitMs.value = uidDailyLimit
 
         loadBuddiesAndLeaderboard(userUid)
 
@@ -291,11 +583,73 @@ class HomeViewModel(
     }
 
     fun refreshMetrics() {
-        viewModelScope.launch {
-            val appStats = repository.getTodayUsageData()
-            _topApps.value = appStats
-            _todayScreenTimeMs.value = appStats.sumOf { it.totalTimeInForegroundMs }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            refreshMetricsInternal()
+        }
+    }
+
+    private suspend fun refreshMetricsInternal() {
+        val granted = repository.isUsageAccessGranted()
+        _isPermissionGranted.value = granted
+        if (granted) {
+            val now = System.currentTimeMillis()
+
+            // 1. Daily Bounds (00:00:00 today to now)
+            val calToday = java.util.Calendar.getInstance()
+            calToday.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            calToday.set(java.util.Calendar.MINUTE, 0)
+            calToday.set(java.util.Calendar.SECOND, 0)
+            calToday.set(java.util.Calendar.MILLISECOND, 0)
+            val startToday = calToday.timeInMillis
+
+            // 2. Weekly Bounds (start of current calendar week 00:00:00 to now)
+            val calWeek = java.util.Calendar.getInstance()
+            calWeek.set(java.util.Calendar.DAY_OF_WEEK, calWeek.firstDayOfWeek)
+            calWeek.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            calWeek.set(java.util.Calendar.MINUTE, 0)
+            calWeek.set(java.util.Calendar.SECOND, 0)
+            calWeek.set(java.util.Calendar.MILLISECOND, 0)
+            val startWeek = calWeek.timeInMillis
+
+            // 3. Monthly Bounds (1st day of current calendar month 00:00:00 to now)
+            val calMonth = java.util.Calendar.getInstance()
+            calMonth.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            calMonth.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            calMonth.set(java.util.Calendar.MINUTE, 0)
+            calMonth.set(java.util.Calendar.SECOND, 0)
+            calMonth.set(java.util.Calendar.MILLISECOND, 0)
+            val startMonth = calMonth.timeInMillis
+
+            // Fetch app usage for each period
+            val dailyApps = repository.getTodayUsageData()
+            val weeklyApps = repository.getUsageDataForPeriod(startWeek, now)
+            val monthlyApps = repository.getUsageDataForPeriod(startMonth, now)
+
+            _topApps.value = dailyApps
+            _weeklyTopApps.value = weeklyApps
+            _monthlyTopApps.value = monthlyApps
+
+            _todayScreenTimeMs.value = dailyApps.sumOf { it.totalTimeInForegroundMs }
+            _weeklyScreenTimeMs.value = weeklyApps.sumOf { it.totalTimeInForegroundMs }
+            _monthlyScreenTimeMs.value = monthlyApps.sumOf { it.totalTimeInForegroundMs }
+
             _detailedAnalytics.value = repository.getDetailedAnalytics()
+            _weeklyDetailedAnalytics.value = repository.getDetailedAnalyticsForPeriod(startWeek, now)
+            _monthlyDetailedAnalytics.value = repository.getDetailedAnalyticsForPeriod(startMonth, now)
+
+            _dailyHistory.value = repository.getDailyHistory()
+            _weeklyHistory.value = repository.getWeeklyHistory()
+            _monthlyHistory.value = repository.getMonthlyHistory()
+
+            val hourlyData = ScreenTimeService(context).getTodayHourlyScreenTimeMs()
+            _todayHourlyScreenTimeMs.value = hourlyData
+
+            // Trigger notification check when approaching configured daily limit
+            com.example.data.service.NotificationHelper.checkAndSendDailyLimitNotification(
+                context = context,
+                todayScreenTimeMs = _todayScreenTimeMs.value,
+                dailyLimitMs = _dailyScreenTimeLimitMs.value
+            )
         }
     }
 
@@ -359,12 +713,13 @@ class HomeViewModel(
     // Challenge & Task execution actions
     fun completeChallenge(title: String, type: String, xpGained: Int, coinsGained: Int, timeSec: Int) {
         viewModelScope.launch {
+            val actualXp = 0 // Requirement 5D: DO NOT award XP for challenge completion
             val entry = ChallengeHistoryEntry(
                 id = "history_${UUID.randomUUID()}",
                 title = title,
                 type = type,
                 status = "COMPLETED",
-                rewardText = "+$xpGained XP, +$coinsGained Coins",
+                rewardText = "+0 XP, +$coinsGained Coins",
                 completionTimeSec = timeSec,
                 dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             )
@@ -373,36 +728,12 @@ class HomeViewModel(
             val updatedList = _challengeHistory.value.toMutableList().apply { add(0, entry) }
             _challengeHistory.value = updatedList
             
-            // Handle XP, Coins, and Level Ups
-            var currentXp = _userXp.value + xpGained
-            var currentLevel = _userLevel.value
-            val oldLevel = currentLevel
-            var xpNeeded = currentLevel * 100
-            
-            while (currentXp >= xpNeeded) {
-                currentXp -= xpNeeded
-                currentLevel++
-                xpNeeded = currentLevel * 100
-            }
-            
-            _userXp.value = currentXp
-            _userLevel.value = currentLevel
             _userCoins.value += coinsGained
-            
-            if (currentLevel > oldLevel) {
-                _lastLevelUpFrom.value = oldLevel
-                _lastLevelUpTo.value = currentLevel
-                _isLevelUpPending.value = true
-                Log.i(tag, "🎉 LEVEL UP! User leveled up from $oldLevel to $currentLevel!")
-            }
-            
-            // Increment streak dynamically
-            _userStreak.value += 1
             
             saveProgress()
             checkBadges()
 
-            Log.i(tag, "[completeChallenge] Challenge completed: '$title' ($type). +$xpGained XP (Total XP: ${_userXp.value}), +$coinsGained Coins (Total: ${_userCoins.value}), Level: ${_userLevel.value}, Streak: ${_userStreak.value}")
+            Log.i(tag, "[completeChallenge] Challenge completed: '$title' ($type). +0 XP, +$coinsGained Coins (Total: ${_userCoins.value})")
             
             // Sync with remote firestore and Room if active user is set
             if (activeUserUid.isNotEmpty()) {
@@ -427,7 +758,7 @@ class HomeViewModel(
                 title = title,
                 type = type,
                 status = "SKIPPED",
-                rewardText = "-$penaltyXp XP",
+                rewardText = "+0 XP",
                 completionTimeSec = 0,
                 dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             )
@@ -436,17 +767,9 @@ class HomeViewModel(
             val updatedList = _challengeHistory.value.toMutableList().apply { add(0, entry) }
             _challengeHistory.value = updatedList
             
-            // Penalize XP slightly (no negative values)
-            val newXp = (_userXp.value - penaltyXp).coerceAtLeast(0)
-            _userXp.value = newXp
-            
-            if (_userStreak.value > 0) {
-                _userStreak.value = (_userStreak.value - 1).coerceAtLeast(1)
-            }
-            
             saveProgress()
 
-            Log.i(tag, "[skipChallenge] Challenge skipped: '$title' ($type). Penalty -$penaltyXp XP (Remaining XP: ${_userXp.value})")
+            Log.i(tag, "[skipChallenge] Challenge skipped: '$title' ($type). +0 XP change.")
             
             if (activeUserUid.isNotEmpty()) {
                 repository.syncUserProfileProgress(
@@ -540,18 +863,59 @@ class HomeViewModel(
         Log.d(tag, "[saveProgress] User progress saved locally for UID '$activeUserUid' - Level: ${_userLevel.value}, XP: ${_userXp.value}, Coins: ${_userCoins.value}, Streak: ${_userStreak.value}")
     }
 
-    // Buddy invitations
+    // Buddy invitations & Browse Friends
+    fun loadBrowseFriends(currentUid: String) {
+        viewModelScope.launch {
+            val list = repository.getAllAppUsersWithStatus(currentUid)
+            _browseFriendsList.value = list
+        }
+    }
+
+    fun loadBuddyDetails(buddyUid: String) {
+        viewModelScope.launch {
+            _isBuddyDetailsLoading.value = true
+            val details = repository.getBuddyDetails(buddyUid)
+            _selectedBuddyDetails.value = details
+            _isBuddyDetailsLoading.value = false
+        }
+    }
+
+    fun clearBuddyDetails() {
+        _selectedBuddyDetails.value = null
+        _isBuddyDetailsLoading.value = false
+    }
+
     fun sendFriendRequest(userUid: String, targetEmail: String) {
         viewModelScope.launch {
             repository.sendFriendRequest(userUid, targetEmail)
             loadBuddiesAndLeaderboard(userUid)
+            loadBrowseFriends(userUid)
         }
     }
 
-    fun acceptFriendRequest(userUid: String, friendUid: String) {
+    fun sendFriendRequestToUid(userUid: String, targetUid: String) {
+        viewModelScope.launch {
+            repository.sendFriendRequestToUid(userUid, targetUid)
+            loadBuddiesAndLeaderboard(userUid)
+            loadBrowseFriends(userUid)
+        }
+    }
+
+    fun acceptFriendRequest(
+        userUid: String,
+        friendUid: String,
+        activeFriendsCount: Int,
+        isPremium: Boolean,
+        onLimitReached: () -> Unit
+    ) {
+        if (!isPremium && activeFriendsCount >= 2) {
+            onLimitReached()
+            return
+        }
         viewModelScope.launch {
             repository.acceptFriendRequest(userUid, friendUid)
             loadBuddiesAndLeaderboard(userUid)
+            loadBrowseFriends(userUid)
         }
     }
 
@@ -559,6 +923,7 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.rejectFriendRequest(userUid, friendUid)
             loadBuddiesAndLeaderboard(userUid)
+            loadBrowseFriends(userUid)
         }
     }
 
@@ -576,6 +941,24 @@ class HomeViewModel(
         }
     }
 
+    fun verifyPremiumEntitlement(user: com.example.data.model.User, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val userRepository = com.example.data.repository.UserRepository(com.example.data.repository.FirestoreService())
+                val fetchedUser = userRepository.getUser(user.uid)
+                if (fetchedUser != null) {
+                    val isEntitled = fetchedUser.premium || (fetchedUser.isTrialActive && !fetchedUser.hasTrialExpired())
+                    onResult(isEntitled)
+                } else {
+                    val isLocalEntitled = user.premium || (user.isTrialActive && !user.hasTrialExpired())
+                    onResult(isLocalEntitled)
+                }
+            } catch (e: Exception) {
+                val isLocalEntitled = user.premium || (user.isTrialActive && !user.hasTrialExpired())
+                onResult(isLocalEntitled)
+            }
+        }
+    }
     fun markEarlyBirdOfferSeen(user: com.example.data.model.User) {
         if (!user.hasSeenEarlyBirdOffer) {
             val updatedUser = user.copy(hasSeenEarlyBirdOffer = true)
@@ -584,7 +967,7 @@ class HomeViewModel(
         }
     }
 
-    fun startFreeTrial(user: com.example.data.model.User) {
+    fun startFreeTrial(user: com.example.data.model.User, onTrialStarted: () -> Unit = {}) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             val trialEnd = now + (3 * 24 * 3600 * 1000L) // 3-day trial
@@ -600,6 +983,7 @@ class HomeViewModel(
             )
             updateUserProfile(updatedUser)
             Log.i(tag, "[HomeViewModel] Activated 3-day free trial for UID '${user.uid}'. Trial ends at: $trialEnd")
+            onTrialStarted()
         }
     }
 

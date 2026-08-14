@@ -1,7 +1,7 @@
 package com.example.data.service
 
 import android.app.AppOpsManager
-import android.app.usage.UsageStats
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
@@ -13,6 +13,19 @@ import java.util.Date
 import java.util.Locale
 
 class ScreenTimeService(private val context: Context) {
+
+    /**
+     * Data class matching the detailed actual analytics requirements.
+     */
+    data class DetailedAnalytics(
+        val yesterdayScreenTimeMs: Long,
+        val totalLaunches: Int,
+        val unlockCount: Int,
+        val averageSessionMs: Long,
+        val longestSessionMs: Long,
+        val peakUsageHours: String,
+        val hourlyDistribution: Map<Int, Int> // Hour of day -> Launch Count
+    )
 
     /**
      * Checks if the PACKAGE_USAGE_STATS permission is granted.
@@ -37,10 +50,76 @@ class ScreenTimeService(private val context: Context) {
     }
 
     /**
-     * Retrieves actual screen time stats from UsageStatsManager.
-     * Returns emptyList() if permission is missing, or if there is no data, enabling elegant empty states.
+     * Core accurate calculation engine for screen time between startTime and endTime.
+     * Enforces local calendar day boundaries, splits sessions crossing boundaries,
+     * and handles screen-off / keyguard events to prevent double counting or phantom usage.
      */
-    fun getTodayUsageData(): List<AppUsageInfo> {
+    private fun getAccurateScreenTimeForPeriod(startTime: Long, endTime: Long): Long {
+        if (!isUsageAccessGranted()) return 0L
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return 0L
+
+        var totalTime = 0L
+        try {
+            // Buffer query 12h prior to catch sessions starting before startTime
+            val queryStart = Math.max(0L, startTime - 12 * 60 * 60 * 1000L)
+            val events = usageStatsManager.queryEvents(queryStart, endTime)
+            val event = UsageEvents.Event()
+            val appStartTimes = mutableMapOf<String, Long>()
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pName = event.packageName
+                val timestamp = event.timeStamp
+
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        appStartTimes[pName] = timestamp
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val start = appStartTimes.remove(pName)
+                        if (start != null) {
+                            val sessionStart = Math.max(start, startTime)
+                            val sessionEnd = Math.min(timestamp, endTime)
+                            if (sessionEnd > sessionStart) {
+                                totalTime += (sessionEnd - sessionStart)
+                            }
+                        }
+                    }
+                    16, 17, 26 -> { // SCREEN_NON_INTERACTIVE (16), KEYGUARD_SHOWN (17), DEVICE_SHUTDOWN (26)
+                        for ((_, start) in appStartTimes) {
+                            val sessionStart = Math.max(start, startTime)
+                            val sessionEnd = Math.min(timestamp, endTime)
+                            if (sessionEnd > sessionStart) {
+                                totalTime += (sessionEnd - sessionStart)
+                            }
+                        }
+                        appStartTimes.clear()
+                    }
+                }
+            }
+
+            // Cap ongoing sessions at endTime
+            for ((_, start) in appStartTimes) {
+                val sessionStart = Math.max(start, startTime)
+                val sessionEnd = Math.min(endTime, sessionStart + 3600_000L) // cap continuous unclosed ongoing at 1h
+                if (sessionEnd > sessionStart) {
+                    totalTime += (sessionEnd - sessionStart)
+                }
+            }
+        } catch (e: Exception) {
+            // fail gracefully
+        }
+
+        // Hard cap total screen time to actual elapsed time in period
+        val elapsedPeriod = Math.max(0L, endTime - startTime)
+        return Math.min(totalTime, elapsedPeriod)
+    }
+
+    /**
+     * Retrieves actual screen time stats for any given period [startTime, endTime].
+     */
+    fun getUsageDataForPeriod(startTime: Long, endTime: Long): List<AppUsageInfo> {
         if (!isUsageAccessGranted()) {
             return emptyList()
         }
@@ -49,26 +128,58 @@ class ScreenTimeService(private val context: Context) {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
                 ?: return emptyList()
 
-            val calendar = Calendar.getInstance()
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            val startTime = calendar.timeInMillis
-            val endTime = System.currentTimeMillis()
+            val queryStart = Math.max(0L, startTime - 12 * 60 * 60 * 1000L)
+            val events = usageStatsManager.queryEvents(queryStart, endTime)
+            val event = UsageEvents.Event()
+            val appUsageMap = mutableMapOf<String, Long>()
+            val appStartTimes = mutableMapOf<String, Long>()
 
-            val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-            if (statsMap.isNullOrEmpty()) {
-                return emptyList()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pName = event.packageName
+                val timestamp = event.timeStamp
+
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        appStartTimes[pName] = timestamp
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val start = appStartTimes.remove(pName)
+                        if (start != null) {
+                            val sessionStart = Math.max(start, startTime)
+                            val sessionEnd = Math.min(timestamp, endTime)
+                            if (sessionEnd > sessionStart) {
+                                appUsageMap[pName] = (appUsageMap[pName] ?: 0L) + (sessionEnd - sessionStart)
+                            }
+                        }
+                    }
+                    16, 17, 26 -> { // SCREEN_NON_INTERACTIVE, KEYGUARD_SHOWN, DEVICE_SHUTDOWN
+                        for ((pkg, start) in appStartTimes) {
+                            val sessionStart = Math.max(start, startTime)
+                            val sessionEnd = Math.min(timestamp, endTime)
+                            if (sessionEnd > sessionStart) {
+                                appUsageMap[pkg] = (appUsageMap[pkg] ?: 0L) + (sessionEnd - sessionStart)
+                            }
+                        }
+                        appStartTimes.clear()
+                    }
+                }
             }
 
-            // Convert to our domain model
+            for ((pkg, start) in appStartTimes) {
+                val sessionStart = Math.max(start, startTime)
+                val sessionEnd = Math.min(endTime, sessionStart + 3600_000L)
+                if (sessionEnd > sessionStart) {
+                    appUsageMap[pkg] = (appUsageMap[pkg] ?: 0L) + (sessionEnd - sessionStart)
+                }
+            }
+
+            // Convert to domain model
             val packageManager = context.packageManager
             val list = mutableListOf<AppUsageInfo>()
             var totalTime = 0L
 
-            for ((packageName, stats) in statsMap) {
-                val time = stats.totalTimeInForeground
+            for ((packageName, time) in appUsageMap) {
                 if (time > 1000) { // More than 1 second
                     val appLabel = try {
                         val appInfo = packageManager.getApplicationInfo(packageName, 0)
@@ -94,7 +205,6 @@ class ScreenTimeService(private val context: Context) {
                 return emptyList()
             }
 
-            // Calculate relative percentages
             return list.map {
                 it.copy(
                     relativePercentage = if (totalTime > 0) {
@@ -109,50 +219,127 @@ class ScreenTimeService(private val context: Context) {
     }
 
     /**
-     * Helper to guess a user-friendly category.
+     * Retrieves actual screen time stats for TODAY (from 00:00:00 local time to now).
      */
+    fun getTodayUsageData(): List<AppUsageInfo> {
+        val calendar = Calendar.getInstance()
+        val now = System.currentTimeMillis()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        return getUsageDataForPeriod(calendar.timeInMillis, now)
+    }
+
+    /**
+     * Calculates actual hourly screen time duration (in ms) for TODAY from 00:00 to now.
+     */
+    fun getTodayHourlyScreenTimeMs(): Map<Int, Long> {
+        val result = mutableMapOf<Int, Long>()
+        for (h in 0..23) result[h] = 0L
+        if (!isUsageAccessGranted()) return result
+
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return result
+
+        val calendar = Calendar.getInstance()
+        val now = System.currentTimeMillis()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfDay = calendar.timeInMillis
+
+        try {
+            val queryStart = Math.max(0L, startOfDay - 12 * 60 * 60 * 1000L)
+            val events = usageStatsManager.queryEvents(queryStart, now)
+            val event = UsageEvents.Event()
+            val appStartTimes = mutableMapOf<String, Long>()
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pName = event.packageName
+                val timestamp = event.timeStamp
+
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        appStartTimes[pName] = timestamp
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val start = appStartTimes.remove(pName)
+                        if (start != null) {
+                            val sessionStart = Math.max(start, startOfDay)
+                            val sessionEnd = Math.min(timestamp, now)
+                            if (sessionEnd > sessionStart) {
+                                addDurationToHourlyBuckets(result, sessionStart, sessionEnd)
+                            }
+                        }
+                    }
+                    16, 17, 26 -> { // SCREEN_NON_INTERACTIVE, KEYGUARD_SHOWN, DEVICE_SHUTDOWN
+                        for ((_, start) in appStartTimes) {
+                            val sessionStart = Math.max(start, startOfDay)
+                            val sessionEnd = Math.min(timestamp, now)
+                            if (sessionEnd > sessionStart) {
+                                addDurationToHourlyBuckets(result, sessionStart, sessionEnd)
+                            }
+                        }
+                        appStartTimes.clear()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Fail gracefully
+        }
+        return result
+    }
+
+    private fun addDurationToHourlyBuckets(map: MutableMap<Int, Long>, startMs: Long, endMs: Long) {
+        val cal = Calendar.getInstance()
+        var current = startMs
+        while (current < endMs) {
+            cal.timeInMillis = current
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+
+            cal.set(Calendar.MINUTE, 59)
+            cal.set(Calendar.SECOND, 59)
+            cal.set(Calendar.MILLISECOND, 999)
+            val endOfHour = cal.timeInMillis + 1
+
+            val chunkEnd = Math.min(endMs, endOfHour)
+            val duration = chunkEnd - current
+            map[hour] = (map[hour] ?: 0L) + duration
+            current = chunkEnd
+        }
+    }
+
     private fun guessAppCategory(packageName: String): String {
         return when {
-            packageName.contains("instagram") || packageName.contains("facebook") || 
-            packageName.contains("twitter") || packageName.contains("tiktok") || 
+            packageName.contains("instagram") || packageName.contains("facebook") ||
+            packageName.contains("twitter") || packageName.contains("tiktok") ||
             packageName.contains("reddit") || packageName.contains("linkedin") -> "Social Media"
-            
-            packageName.contains("youtube") || packageName.contains("netflix") || 
+
+            packageName.contains("youtube") || packageName.contains("netflix") ||
             packageName.contains("spotify") || packageName.contains("twitch") ||
             packageName.contains("vlc") -> "Entertainment"
-            
-            packageName.contains("chrome") || packageName.contains("firefox") || 
+
+            packageName.contains("chrome") || packageName.contains("firefox") ||
             packageName.contains("opera") || packageName.contains("safari") -> "Browsing"
-            
-            packageName.contains("whatsapp") || packageName.contains("telegram") || 
-            packageName.contains("signal") || packageName.contains("discord") || 
+
+            packageName.contains("whatsapp") || packageName.contains("telegram") ||
+            packageName.contains("signal") || packageName.contains("discord") ||
             packageName.contains("messenger") -> "Communication"
-            
-            packageName.contains("game") || packageName.contains("pubg") || 
+
+            packageName.contains("game") || packageName.contains("pubg") ||
             packageName.contains("subway") || packageName.contains("candy") -> "Games"
-            
+
             else -> "Utility & Others"
         }
     }
 
     /**
-     * Data class matching the detailed actual analytics requirements.
+     * Fetches real detailed usage stats and metrics for any given period [startTime, endTime].
      */
-    data class DetailedAnalytics(
-        val yesterdayScreenTimeMs: Long,
-        val totalLaunches: Int,
-        val unlockCount: Int,
-        val averageSessionMs: Long,
-        val longestSessionMs: Long,
-        val peakUsageHours: String,
-        val hourlyDistribution: Map<Int, Int> // Hour of day -> Launch Count
-    )
-
-    /**
-     * Fetches real detailed usage stats and metrics for today using active UsageEvents,
-     * such as pickups/unlocks, session tracking, and app launches.
-     */
-    fun getDetailedAnalytics(): DetailedAnalytics {
+    fun getDetailedAnalyticsForPeriod(startTime: Long, endTime: Long): DetailedAnalytics {
         if (!isUsageAccessGranted()) {
             return DetailedAnalytics(0, 0, 0, 0, 0, "No Data", emptyMap())
         }
@@ -160,85 +347,80 @@ class ScreenTimeService(private val context: Context) {
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
             ?: return DetailedAnalytics(0, 0, 0, 0, 0, "No Data", emptyMap())
 
-        // 1. Calculate Yesterday Screen Time
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, -1)
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        val startYesterday = cal.timeInMillis
-        
-        cal.set(Calendar.HOUR_OF_DAY, 23)
-        cal.set(Calendar.MINUTE, 59)
-        cal.set(Calendar.SECOND, 59)
-        cal.set(Calendar.MILLISECOND, 999)
-        val endYesterday = cal.timeInMillis
-
-        var yesterdayScreenTimeMs = 0L
-        try {
-            val yesterdayStats = usageStatsManager.queryAndAggregateUsageStats(startYesterday, endYesterday)
-            if (!yesterdayStats.isNullOrEmpty()) {
-                yesterdayScreenTimeMs = yesterdayStats.values.sumOf { it.totalTimeInForeground }
-            }
-        } catch (e: Exception) {
-            // Fail gracefully
-        }
-
-        // 2. Query UsageEvents for Today to calculate launches, sessions, and unlocks
-        val calTodayStart = Calendar.getInstance()
-        calTodayStart.set(Calendar.HOUR_OF_DAY, 0)
-        calTodayStart.set(Calendar.MINUTE, 0)
-        calTodayStart.set(Calendar.SECOND, 0)
-        calTodayStart.set(Calendar.MILLISECOND, 0)
-        val startToday = calTodayStart.timeInMillis
-        val endToday = System.currentTimeMillis()
+        // Calculate comparison period (previous equivalent window)
+        val periodDuration = Math.max(1L, endTime - startTime)
+        val startPrevious = Math.max(0L, startTime - periodDuration)
+        val endPrevious = startTime - 1L
+        val yesterdayScreenTimeMs = getAccurateScreenTimeForPeriod(startPrevious, endPrevious)
 
         var totalLaunches = 0
         var unlockCount = 0
         var longestSessionMs = 0L
         var totalSessionDurationMs = 0L
         var sessionCount = 0
-        
+
         val hourlyMap = mutableMapOf<Int, Int>()
         for (h in 0..23) hourlyMap[h] = 0
 
+        var lastUnlockTime = 0L
+        val lastLaunchTimeMap = mutableMapOf<String, Long>()
+
         try {
-            val events = usageStatsManager.queryEvents(startToday, endToday)
-            val event = android.app.usage.UsageEvents.Event()
+            val events = usageStatsManager.queryEvents(startTime, endTime)
+            val event = UsageEvents.Event()
             val appStartTimes = mutableMapOf<String, Long>()
-            
+
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
                 val pName = event.packageName
                 val timestamp = event.timeStamp
                 val hour = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.HOUR_OF_DAY)
 
-                if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
-                    totalLaunches++
-                    appStartTimes[pName] = timestamp
-                    hourlyMap[hour] = (hourlyMap[hour] ?: 0) + 1
-                } else if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED) {
-                    val startTime = appStartTimes.remove(pName)
-                    if (startTime != null && timestamp > startTime) {
-                        val duration = timestamp - startTime
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        val lastLaunch = lastLaunchTimeMap[pName] ?: 0L
+                        if (timestamp - lastLaunch > 3000L) { // Deduplicate rapid resumes within 3s
+                            totalLaunches++
+                            lastLaunchTimeMap[pName] = timestamp
+                            hourlyMap[hour] = (hourlyMap[hour] ?: 0) + 1
+                        }
+                        appStartTimes[pName] = timestamp
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val start = appStartTimes.remove(pName)
+                        if (start != null && timestamp > start) {
+                            val duration = timestamp - start
+                            sessionCount++
+                            totalSessionDurationMs += duration
+                            if (duration > longestSessionMs) {
+                                longestSessionMs = duration
+                            }
+                        }
+                    }
+                    18, 15 -> { // KEYGUARD_DISMISSED, SCREEN_INTERACTIVE
+                        if (timestamp - lastUnlockTime > 2000L) { // Deduplicate unlocks within 2s
+                            unlockCount++
+                            lastUnlockTime = timestamp
+                        }
+                    }
+                }
+            }
+
+            // Flush remaining active sessions
+            for ((pkg, start) in appStartTimes) {
+                if (endTime > start) {
+                    val duration = Math.min(endTime - start, 3600_000L)
+                    if (duration > 0) {
                         sessionCount++
                         totalSessionDurationMs += duration
                         if (duration > longestSessionMs) {
                             longestSessionMs = duration
                         }
                     }
-                } else if (event.eventType == 18 || event.eventType == 15) { // 18 is KEYGUARD_DISMISSED, 15 is SCREEN_INTERACTIVE
-                    unlockCount++
                 }
             }
         } catch (e: Exception) {
             // Fail gracefully
-        }
-
-        // Fallback: estimate unlocks/pickups from unique application launches if keyguard event reporting is restricted
-        if (unlockCount == 0 && totalLaunches > 0) {
-            unlockCount = (totalLaunches / 4).coerceAtLeast(1)
         }
 
         val averageSessionMs = if (sessionCount > 0) totalSessionDurationMs / sessionCount else 0L
@@ -265,7 +447,20 @@ class ScreenTimeService(private val context: Context) {
     }
 
     /**
+     * Fetches real detailed usage stats and metrics for today.
+     */
+    fun getDetailedAnalytics(): DetailedAnalytics {
+        val calTodayStart = Calendar.getInstance()
+        calTodayStart.set(Calendar.HOUR_OF_DAY, 0)
+        calTodayStart.set(Calendar.MINUTE, 0)
+        calTodayStart.set(Calendar.SECOND, 0)
+        calTodayStart.set(Calendar.MILLISECOND, 0)
+        return getDetailedAnalyticsForPeriod(calTodayStart.timeInMillis, System.currentTimeMillis())
+    }
+
+    /**
      * Retrieves actual daily screen time distribution across 3-hour blocks today.
+     * Uses the exact same single-source calculation for consistency.
      */
     fun getDailyHistory(): Map<String, Long> {
         val map = linkedMapOf<String, Long>()
@@ -276,9 +471,6 @@ class ScreenTimeService(private val context: Context) {
         val labels = listOf("12 AM", "3 AM", "6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM")
         labels.forEach { map[it] = 0L }
 
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return map
-
         val cal = Calendar.getInstance()
         val now = cal.timeInMillis
         cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -287,37 +479,22 @@ class ScreenTimeService(private val context: Context) {
         cal.set(Calendar.MILLISECOND, 0)
         val startToday = cal.timeInMillis
 
-        try {
-            val events = usageStatsManager.queryEvents(startToday, now)
-            val event = android.app.usage.UsageEvents.Event()
-            val appStartTimes = mutableMapOf<String, Long>()
-
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                val pName = event.packageName
-                val timestamp = event.timeStamp
-                val hour = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.HOUR_OF_DAY)
-                val blockIndex = (hour / 3).coerceIn(0, 7)
-                val label = labels[blockIndex]
-
-                if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
-                    appStartTimes[pName] = timestamp
-                } else if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED) {
-                    val startTime = appStartTimes.remove(pName)
-                    if (startTime != null && timestamp > startTime) {
-                        val duration = timestamp - startTime
-                        map[label] = (map[label] ?: 0L) + duration
-                    }
-                }
+        // Distribute total usage across 3-hour intervals
+        for (i in 0..7) {
+            val blockStart = startToday + i * 3 * 3600_000L
+            val blockEnd = Math.min(now, startToday + (i + 1) * 3 * 3600_000L)
+            if (blockEnd > blockStart) {
+                map[labels[i]] = getAccurateScreenTimeForPeriod(blockStart, blockEnd)
+            } else {
+                map[labels[i]] = 0L
             }
-        } catch (e: Exception) {
-            // Fail gracefully
         }
+
         return map
     }
 
     /**
-     * Retrieves actual weekly screen time history from UsageStatsManager.
+     * Retrieves actual weekly screen time history for the CURRENT calendar week.
      */
     fun getWeeklyHistory(): Map<String, Long> {
         val map = linkedMapOf<String, Long>()
@@ -325,46 +502,43 @@ class ScreenTimeService(private val context: Context) {
             return emptyMap()
         }
 
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return emptyMap()
-
         val format = SimpleDateFormat("E", Locale.getDefault())
         val cal = Calendar.getInstance()
 
-        for (i in 6 downTo 0) {
+        // Go to start of current calendar week
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+
+        val now = System.currentTimeMillis()
+
+        for (i in 0 until 7) {
             val dCal = cal.clone() as Calendar
-            dCal.add(Calendar.DAY_OF_YEAR, -i)
+            dCal.add(Calendar.DAY_OF_YEAR, i)
             val dateLabel = format.format(dCal.time)
-            
-            dCal.set(Calendar.HOUR_OF_DAY, 0)
-            dCal.set(Calendar.MINUTE, 0)
-            dCal.set(Calendar.SECOND, 0)
-            dCal.set(Calendar.MILLISECOND, 0)
+
             val startTime = dCal.timeInMillis
-            
             val dCalEnd = dCal.clone() as Calendar
             dCalEnd.set(Calendar.HOUR_OF_DAY, 23)
             dCalEnd.set(Calendar.MINUTE, 59)
             dCalEnd.set(Calendar.SECOND, 59)
             dCalEnd.set(Calendar.MILLISECOND, 999)
-            val endTime = dCalEnd.timeInMillis
+            val endTime = Math.min(now, dCalEnd.timeInMillis)
 
-            var dayTotal = 0L
-            try {
-                val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-                if (!statsMap.isNullOrEmpty()) {
-                    dayTotal = statsMap.values.sumOf { it.totalTimeInForeground }
-                }
-            } catch (e: Exception) {
-                // Fail gracefully
+            if (endTime > startTime && startTime <= now) {
+                val dayTotal = getAccurateScreenTimeForPeriod(startTime, endTime)
+                map[dateLabel] = dayTotal
+            } else {
+                map[dateLabel] = 0L
             }
-            map[dateLabel] = dayTotal
         }
         return map
     }
 
     /**
-     * Retrieves actual monthly screen time history from UsageStatsManager.
+     * Retrieves actual monthly screen time history for the CURRENT calendar month.
      */
     fun getMonthlyHistory(): Map<String, Long> {
         val map = linkedMapOf<String, Long>()
@@ -372,41 +546,36 @@ class ScreenTimeService(private val context: Context) {
             return emptyMap()
         }
 
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return emptyMap()
-
         val cal = Calendar.getInstance()
+        val now = System.currentTimeMillis()
 
-        for (i in 3 downTo 0) {
-            val dCal = cal.clone() as Calendar
-            dCal.add(Calendar.WEEK_OF_YEAR, -i)
-            val label = if (i == 0) "Week 4" else "Week ${4 - i}"
-            
-            dCal.set(Calendar.DAY_OF_WEEK, dCal.firstDayOfWeek)
-            dCal.set(Calendar.HOUR_OF_DAY, 0)
-            dCal.set(Calendar.MINUTE, 0)
-            dCal.set(Calendar.SECOND, 0)
-            dCal.set(Calendar.MILLISECOND, 0)
-            val startTime = dCal.timeInMillis
-            
-            val dCalEnd = dCal.clone() as Calendar
-            dCalEnd.add(Calendar.DAY_OF_WEEK, 6)
-            dCalEnd.set(Calendar.HOUR_OF_DAY, 23)
-            dCalEnd.set(Calendar.MINUTE, 59)
-            dCalEnd.set(Calendar.SECOND, 59)
-            dCalEnd.set(Calendar.MILLISECOND, 999)
-            val endTime = dCalEnd.timeInMillis
+        // Set to 1st day of current calendar month
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
 
-            var weekTotal = 0L
-            try {
-                val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-                if (!statsMap.isNullOrEmpty()) {
-                    weekTotal = statsMap.values.sumOf { it.totalTimeInForeground }
-                }
-            } catch (e: Exception) {
-                // Fail gracefully
+        val maxDays = Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        val week1End = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 7) }
+        val week2End = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 14) }
+        val week3End = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 21) }
+
+        val weeks = listOf(
+            "W1 (1-7)" to Pair(cal.timeInMillis, Math.min(now, week1End.timeInMillis - 1)),
+            "W2 (8-14)" to Pair(week1End.timeInMillis, Math.min(now, week2End.timeInMillis - 1)),
+            "W3 (15-21)" to Pair(week2End.timeInMillis, Math.min(now, week3End.timeInMillis - 1)),
+            "W4 (22+)" to Pair(week3End.timeInMillis, now)
+        )
+
+        for ((label, range) in weeks) {
+            val (start, end) = range
+            if (end > start && start <= now) {
+                map[label] = getAccurateScreenTimeForPeriod(start, end)
+            } else {
+                map[label] = 0L
             }
-            map[label] = weekTotal
         }
         return map
     }

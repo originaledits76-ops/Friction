@@ -1,28 +1,20 @@
 package com.example.features.paywall
 
-import com.example.data.model.User
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -36,6 +28,7 @@ import com.example.core.widgets.FrictionButton
 import com.example.core.widgets.GlassCard
 import com.example.core.widgets.PremiumBackground
 import com.example.core.widgets.BackgroundStyle
+import com.example.data.model.User
 import com.example.ui.theme.*
 
 enum class PlanType {
@@ -46,21 +39,24 @@ enum class PlanType {
 @Composable
 fun PaywallScreen(
     user: User? = null,
+    initialStep: Int = 1,
     onLinkGoogle: () -> Unit = {},
     onDismiss: () -> Unit,
     onPurchaseSuccess: (PlanType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by remember { mutableIntStateOf(initialStep.coerceIn(1, 3)) }
     var selectedPlan by remember { mutableStateOf(PlanType.YEARLY) }
     var isProcessing by remember { mutableStateOf(false) }
     var showGuestDialog by remember { mutableStateOf(false) }
+
+    val totalSteps = 3
 
     if (showGuestDialog) {
         AlertDialog(
             onDismissRequest = { showGuestDialog = false },
             title = {
-                Text(
+                ResponsiveText(
                     text = "Google Account Required",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
@@ -68,7 +64,7 @@ fun PaywallScreen(
                 )
             },
             text = {
-                Text(
+                ResponsiveText(
                     text = "Premium subscriptions require a Google account.\n\nGoogle login protects purchases across devices and prevents loss of access.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
@@ -85,7 +81,7 @@ fun PaywallScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showGuestDialog = false }) {
-                    Text("Cancel", color = TextMuted)
+                    ResponsiveText("Cancel", color = TextMuted)
                 }
             },
             containerColor = DarkSurface,
@@ -103,14 +99,14 @@ fun PaywallScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 20.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top Navigation Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -145,8 +141,8 @@ fun PaywallScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "Step $currentStep/3",
+                        ResponsiveText(
+                            text = "Step $currentStep of $totalSteps",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = FrictionPrimary
@@ -156,10 +152,10 @@ fun PaywallScreen(
 
                 TextButton(
                     onClick = {
-                        onPurchaseSuccess(selectedPlan)
+                        onPurchaseSuccess(selectedPlan) // Mock restore
                     }
                 ) {
-                    Text(
+                    ResponsiveText(
                         text = "Restore",
                         style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary,
@@ -172,10 +168,10 @@ fun PaywallScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                for (step in 1..3) {
+                for (step in 1..totalSteps) {
                     val isActive = step <= currentStep
                     Box(
                         modifier = Modifier
@@ -209,9 +205,9 @@ fun PaywallScreen(
                     label = "PaywallStepTransition"
                 ) { step ->
                     when (step) {
-                        1 -> Step1FeaturesView()
-                        2 -> Step2PlanComparisonView()
-                        3 -> Step3PlanSelectionView(
+                        1 -> Step1BenefitsAndFeatures()
+                        2 -> Step2ClearComparison()
+                        3 -> Step3PlanSelectionAndPurchase(
                             selectedPlan = selectedPlan,
                             onSelectPlan = { selectedPlan = it }
                         )
@@ -220,20 +216,20 @@ fun PaywallScreen(
             }
 
             // Bottom Navigation Action Button
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 FrictionButton(
                     text = when (currentStep) {
-                        1 -> "Continue to Comparison"
-                        2 -> "Continue to Select Plan"
-                        else -> if (isProcessing) "Processing..." else "Continue to Checkout"
+                        1 -> "Compare Plans"
+                        2 -> "Select Plan"
+                        else -> if (isProcessing) "Processing Purchase..." else "Continue with 3-Day Trial"
                     },
                     onClick = {
-                        if (currentStep < 3) {
+                        if (currentStep < totalSteps) {
                             currentStep++
                         } else {
                             if (user?.guest == true) {
@@ -247,462 +243,162 @@ fun PaywallScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text(
-                    text = if (currentStep == 3) "Cancel anytime. Safe & secure payment." else "Step $currentStep of 3 • Cancel anytime",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
-                    textAlign = TextAlign.Center
-                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = null,
+                        tint = FrictionSecondaryText,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    ResponsiveText(
+                        text = if (currentStep == totalSteps) "🔒 Encrypted & Secure Payment via Google Play" else "Step $currentStep of $totalSteps • Cancel Anytime",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Step1FeaturesView() {
+private fun Step1BenefitsAndFeatures() {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Hero Graphic & Title
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Image(
                 painter = painterResource(id = R.drawable.mascot_premium),
                 contentDescription = "Flick Premium Mascot",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(110.dp)
+                modifier = Modifier
+                    .size(90.dp)
+                    .padding(bottom = 8.dp)
             )
-
-            Text(
-                text = "Unlock Your Full Focus",
+            ResponsiveText(
+                text = "Unlock Complete Focus",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
                 textAlign = TextAlign.Center
             )
-
-            Text(
-                text = "Discover all the powerful capabilities designed to eliminate digital distractions.",
+            Spacer(modifier = Modifier.height(4.dp))
+            ResponsiveText(
+                text = "Build deep intentional habits with Pro friction barriers & AI insights.",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
         }
 
-        // Section: Included for Everyone (Free)
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            borderColor = Color.White.copy(alpha = 0.1f)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Free",
-                        tint = TextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Included for Everyone (Free)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary
-                    )
-                }
-
-                FeatureItemRow(
-                    icon = Icons.Default.Lock,
-                    title = "Maximum 2 App Limits",
-                    subtitle = "Set up to 2 active app limits with physical barriers",
-                    isPremium = false
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.FitnessCenter,
-                    title = "Push-up Challenge Only",
-                    subtitle = "Physical Push-up challenge before unlocking restricted apps",
-                    isPremium = false
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.BarChart,
-                    title = "Daily Screen Time Summary",
-                    subtitle = "Basic daily usage summary and total unlock stats",
-                    isPremium = false
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.Group,
-                    title = "Maximum 2 Friends",
-                    subtitle = "Connect & view focus stats with up to 2 friends",
-                    isPremium = false
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.Dashboard,
-                    title = "Core Dashboard",
-                    subtitle = "Essential focus controls, streak counters, and rule status",
-                    isPremium = false
-                )
-            }
-        }
-
-        // Section: Premium Features
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            borderColor = FrictionPrimary.copy(alpha = 0.4f),
+            shape = RoundedCornerShape(18.dp),
+            borderColor = FrictionPrimary.copy(alpha = 0.35f),
             backgroundColor = FrictionPrimary.copy(alpha = 0.08f)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Premium",
-                        tint = FrictionAccent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Premium Features (Unlocked)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = FrictionAccent
-                    )
-                }
-
-                FeatureItemRow(
-                    icon = Icons.Default.AllInclusive,
-                    title = "Unlimited App Rules & Barriers",
-                    subtitle = "Block as many distraction apps as you want with no limits",
-                    isPremium = true
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.FitnessCenter,
-                    title = "All 5 Friction Challenges",
-                    subtitle = "Physical Push-ups AI, Find Object Scanner, Walk 100m, Math & Typing",
-                    isPremium = true
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.CenterFocusStrong,
-                    title = "Custom Physical Object Scanner",
-                    subtitle = "Configure up to 5 personal physical objects for AI camera verification",
-                    isPremium = true
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.Psychology,
-                    title = "AI Attention Coaching & Analytics",
-                    subtitle = "Deep habit analysis, unlock patterns, and personalized insights",
-                    isPremium = true
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.Leaderboard,
-                    title = "Social Leaderboards & Friends",
-                    subtitle = "Compete with friends on weekly and monthly focus ranks",
-                    isPremium = true
-                )
-
-                FeatureItemRow(
-                    icon = Icons.Default.Shield,
-                    title = "Active App Blocker Service",
-                    subtitle = "Instant overlay barrier whenever blocked apps are launched",
-                    isPremium = true
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(4.dp)) {
+                FeatureRowCompact(Icons.Default.Block, "100% Ad-Free Experience", "Enjoy Friction without any ads or disruptive interruptions.")
+                FeatureRowCompact(Icons.Default.Psychology, "AI Habit Analysis & Coaching", "Personalized recommendations to reduce screen friction.")
+                FeatureRowCompact(Icons.Default.SelfImprovement, "Box Breathing & Mindful Challenges", "Custom cycles to calm impulse before opening apps.")
+                FeatureRowCompact(Icons.Default.AllInclusive, "Unlimited App Limits", "Create restrictions for as many apps as you need.")
+                FeatureRowCompact(Icons.Default.Analytics, "Advanced Usage Analytics", "Hourly trends and deep category breakdowns.")
+                FeatureRowCompact(Icons.Default.Shield, "Active App Blocker", "Instant overlay whenever opening blocked apps.")
             }
         }
     }
 }
 
 @Composable
-private fun Step2PlanComparisonView() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Plan Comparison",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Compare features across Free, Monthly, Yearly, and Lifetime access.",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Table Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Feature",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextMuted,
-                        modifier = Modifier.weight(1.8f)
-                    )
-                    Text(
-                        text = "Free",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextMuted,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "Paid",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = FrictionPrimary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1.2f)
-                    )
-                }
-
-                Divider(color = Color.White.copy(alpha = 0.08f))
-
-                ComparisonTableRow(
-                    feature = "App Usage Rules",
-                    freeValue = "Max 2",
-                    paidValue = "Unlimited",
-                    isHighlighted = true
-                )
-
-                ComparisonTableRow(
-                    feature = "Friction Challenges",
-                    freeValue = "Push-ups Only",
-                    paidValue = "All 5 Types",
-                    isHighlighted = true
-                )
-
-                ComparisonTableRow(
-                    feature = "AI Pose & Object Scanner",
-                    freeValue = "Basic",
-                    paidValue = "Included",
-                    isHighlighted = true
-                )
-
-                ComparisonTableRow(
-                    feature = "AI Habit Insights",
-                    freeValue = "Summary Only",
-                    paidValue = "Full Access",
-                    isHighlighted = true
-                )
-
-                ComparisonTableRow(
-                    feature = "Leaderboards & Friends",
-                    freeValue = "Max 2 Friends",
-                    paidValue = "Unlimited",
-                    isHighlighted = false
-                )
-
-                ComparisonTableRow(
-                    feature = "Active App Blocker",
-                    freeValue = "Standard",
-                    paidValue = "Priority",
-                    isHighlighted = false
-                )
-            }
-        }
-
-        // Highlight Best Value Box
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = FrictionAccent.copy(alpha = 0.12f),
-            borderColor = FrictionAccent.copy(alpha = 0.4f)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.EmojiEvents,
-                    contentDescription = "Best Value",
-                    tint = FrictionAccent,
-                    modifier = Modifier.size(28.dp)
-                )
-                Column {
-                    Text(
-                        text = "Yearly Plan is Best Value",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "Save 25% with our launch offer. Includes 3-day free trial.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Step3PlanSelectionView(
-    selectedPlan: PlanType,
-    onSelectPlan: (PlanType) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Select Your Plan",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Choose the plan that fits your goals best. Cancel anytime.",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Yearly Plan (Highlighted Best Value)
-            PricingCard(
-                title = "Yearly Plan",
-                strikethroughPrice = "",
-                discountPrice = "₹486 / month",
-                billingDetails = "Billed annually at ₹5,832/yr",
-                badgeText = "Launch Offer – Save 25%",
-                isBestValue = true,
-                isSelected = selectedPlan == PlanType.YEARLY,
-                onClick = { onSelectPlan(PlanType.YEARLY) }
-            )
-
-            // Monthly Plan
-            PricingCard(
-                title = "Monthly Plan",
-                strikethroughPrice = "₹799",
-                discountPrice = "₹649 / month",
-                billingDetails = "Flexible monthly subscription",
-                badgeText = "",
-                isBestValue = false,
-                isSelected = selectedPlan == PlanType.MONTHLY,
-                onClick = { onSelectPlan(PlanType.MONTHLY) }
-            )
-
-            // Lifetime Plan
-            PricingCard(
-                title = "Lifetime License",
-                strikethroughPrice = "",
-                discountPrice = "₹8,999",
-                billingDetails = "One-time payment • Own forever",
-                badgeText = "Launch Offer – Save 25%",
-                isBestValue = false,
-                isSelected = selectedPlan == PlanType.LIFETIME,
-                onClick = { onSelectPlan(PlanType.LIFETIME) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureItemRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    isPremium: Boolean
-) {
+private fun FeatureRowCompact(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isPremium) FrictionAccent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f)
-                ),
+                .background(FrictionAccent.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isPremium) FrictionAccent else TextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
+            Icon(imageVector = icon, contentDescription = null, tint = FrictionAccent, modifier = Modifier.size(20.dp))
         }
-
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
-                fontSize = 11.sp
-            )
+            ResponsiveText(text = title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+            ResponsiveText(text = subtitle, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
         }
     }
 }
 
 @Composable
-private fun ComparisonTableRow(
-    feature: String,
-    freeValue: String,
-    paidValue: String,
-    isHighlighted: Boolean
-) {
+private fun Step2ClearComparison() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ResponsiveText(
+                text = "Compare Plans",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            ResponsiveText(
+                text = "Choose the right tier for your digital wellness journey.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ResponsiveText(text = "Feature", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.weight(1.5f))
+                    ResponsiveText(text = "Free", style = MaterialTheme.typography.labelSmall, color = TextMuted, textAlign = TextAlign.Center, modifier = Modifier.weight(0.8f))
+                    ResponsiveText(text = "Monthly", style = MaterialTheme.typography.labelSmall, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(0.9f))
+                    ResponsiveText(text = "Yearly (Pro)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = FrictionPrimary, textAlign = TextAlign.Center, modifier = Modifier.weight(1.1f))
+                }
+                Divider(color = Color.White.copy(alpha = 0.08f))
+                ComparisonTableRow3("Ad-Free Experience", "Ad-supported", "100% Ad-Free", "100% Ad-Free")
+                ComparisonTableRow3("App Limits", "Max 2", "Unlimited", "Unlimited")
+                ComparisonTableRow3("Challenges", "Typing & Math", "All Challenges", "All Challenges")
+                ComparisonTableRow3("Box Breathing", "Locked", "Available", "Custom Cycles")
+                ComparisonTableRow3("AI Analyse", "Locked", "Available", "Priority AI")
+                ComparisonTableRow3("Smart Analytics", "Basic", "Full", "Full + Trends")
+                ComparisonTableRow3("Streak Savers", "4 / Month", "4 / Month", "4 / Month")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonTableRow3(feature: String, freeVal: String, monthlyVal: String, yearlyVal: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -710,36 +406,88 @@ private fun ComparisonTableRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = feature,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextPrimary,
-            modifier = Modifier.weight(1.8f)
-        )
-        Text(
-            text = freeValue,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = paidValue,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
-            color = if (isHighlighted) FrictionPrimary else TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1.2f)
-        )
+        ResponsiveText(text = feature, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = TextPrimary, modifier = Modifier.weight(1.5f))
+        ResponsiveText(text = freeVal, style = MaterialTheme.typography.labelSmall, color = TextMuted, textAlign = TextAlign.Center, modifier = Modifier.weight(0.8f))
+        ResponsiveText(text = monthlyVal, style = MaterialTheme.typography.labelSmall, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(0.9f))
+        ResponsiveText(text = yearlyVal, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = FrictionPrimary, textAlign = TextAlign.Center, modifier = Modifier.weight(1.1f))
+    }
+}
+
+@Composable
+private fun Step3PlanSelectionAndPurchase(selectedPlan: PlanType, onSelectPlan: (PlanType) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            ResponsiveText(text = "Select Your Plan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Spacer(modifier = Modifier.height(2.dp))
+            ResponsiveText(
+                text = "Includes 3-day free trial. Instant activation, cancel anytime.",
+                style = MaterialTheme.typography.bodySmall,
+                color = FrictionAccent,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        PricingCard("Yearly Pro", "₹549 / mo", "Billed annually at ₹6,588/yr", "BEST VALUE • SAVE 15%", true, selectedPlan == PlanType.YEARLY) { onSelectPlan(PlanType.YEARLY) }
+        PricingCard("Monthly Pro", "₹649 / mo", "Flexible monthly subscription", "PAY AS YOU GO", false, selectedPlan == PlanType.MONTHLY) { onSelectPlan(PlanType.MONTHLY) }
+        PricingCard("Lifetime Access", "₹12,000", "One-time payment forever", "OWN FOREVER", false, selectedPlan == PlanType.LIFETIME) { onSelectPlan(PlanType.LIFETIME) }
+
+        // Trust & Security Badges Card
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            backgroundColor = Color.White.copy(alpha = 0.03f),
+            borderColor = Color.White.copy(alpha = 0.08f)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TrustBadgeItem(
+                    icon = Icons.Default.Lock,
+                    label = "Encrypted",
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                TrustBadgeItem(
+                    icon = Icons.Default.VerifiedUser,
+                    label = "Google Play",
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                TrustBadgeItem(
+                    icon = Icons.Default.CheckCircle,
+                    label = "Cancel Anytime",
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrustBadgeItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = FrictionAccent, modifier = Modifier.size(14.dp))
+        ResponsiveText(text = label, style = MaterialTheme.typography.labelSmall, color = TextSecondary, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 private fun PricingCard(
     title: String,
-    strikethroughPrice: String,
-    discountPrice: String,
-    billingDetails: String,
+    price: String,
+    details: String,
     badgeText: String,
     isBestValue: Boolean,
     isSelected: Boolean,
@@ -750,91 +498,34 @@ private fun PricingCard(
 
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = containerBg,
         border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    ResponsiveText(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                     if (isBestValue) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(FrictionAccent)
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "BEST VALUE",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 10.sp
-                            )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(FrictionAccent).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                            ResponsiveText(text = "POPULAR", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
-
                 if (badgeText.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = badgeText,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = FrictionAccent,
-                        fontSize = 11.sp
-                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    ResponsiveText(text = badgeText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = FrictionAccent)
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = billingDetails,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                    fontSize = 12.sp
-                )
+                Spacer(modifier = Modifier.height(2.dp))
+                ResponsiveText(text = details, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
             Column(horizontalAlignment = Alignment.End) {
-                if (strikethroughPrice.isNotEmpty()) {
-                    Text(
-                        text = strikethroughPrice,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted,
-                        textDecoration = TextDecoration.LineThrough
-                    )
-                }
-
-                Text(
-                    text = discountPrice,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = FrictionPrimary
-                )
-
-                RadioButton(
-                    selected = isSelected,
-                    onClick = onClick,
-                    colors = RadioButtonDefaults.colors(
-                        selectedColor = FrictionPrimary,
-                        unselectedColor = TextMuted
-                    )
-                )
+                ResponsiveText(text = price, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = FrictionPrimary)
+                RadioButton(selected = isSelected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = FrictionPrimary, unselectedColor = TextMuted))
             }
         }
     }
 }
+

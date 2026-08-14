@@ -1,5 +1,6 @@
 package com.example.features.auth
 
+import com.example.core.widgets.ResponsiveText
 import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -168,7 +169,7 @@ fun LoginScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
+                            ResponsiveText(
                                 text = "Hi, I'm Flick!",
                                 style = MaterialTheme.typography.displaySmall,
                                 fontWeight = FontWeight.Bold,
@@ -176,7 +177,7 @@ fun LoginScreen(
                                 textAlign = TextAlign.Center
                             )
 
-                            Text(
+                            ResponsiveText(
                                 text = "I'm here to help you build better habits and protect your focus.",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium,
@@ -184,7 +185,7 @@ fun LoginScreen(
                                 textAlign = TextAlign.Center
                             )
 
-                            Text(
+                            ResponsiveText(
                                 text = "Friction introduces an intentional pause before opening distracting apps so you stay in control of your time and mind.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary,
@@ -228,7 +229,7 @@ fun LoginScreen(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            Text(
+                            ResponsiveText(
                                 text = "By continuing, you agree to our Terms of Service & Privacy Policy.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted,
@@ -285,7 +286,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(
+                        ResponsiveText(
                             text = "Authentication Error",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
@@ -295,7 +296,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
+                        ResponsiveText(
                             text = errorMessage ?: "Sign-in cancelled.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextPrimary,
@@ -305,7 +306,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
+                        ResponsiveText(
                             text = "Please explore as Guest for full local experience.",
                             style = MaterialTheme.typography.labelSmall,
                             color = FrictionSecondaryText,

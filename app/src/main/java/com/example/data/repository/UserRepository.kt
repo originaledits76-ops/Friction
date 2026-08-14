@@ -11,10 +11,10 @@ class UserRepository(private val firestoreService: FirestoreService) {
 
     private fun resolveTargetUid(requestedUid: String): String? {
         val fbUser = SafeFirebase.currentUser
-        if (fbUser != null) {
+        if (fbUser != null && fbUser.uid.isNotBlank()) {
             return fbUser.uid
         }
-        if (requestedUid.isNotBlank() && !requestedUid.startsWith("offline_") && !requestedUid.startsWith("guest_")) {
+        if (requestedUid.isNotBlank()) {
             return requestedUid
         }
         return null
@@ -22,9 +22,10 @@ class UserRepository(private val firestoreService: FirestoreService) {
 
     suspend fun getUser(uid: String): User? {
         val targetUid = resolveTargetUid(uid) ?: return null
+        val db = firestoreService.db ?: return null
 
         return try {
-            val doc = firestoreService.db.collection("users").document(targetUid).get().await()
+            val doc = db.collection("users").document(targetUid).get().await()
             if (doc.exists()) {
                 val badgesList = (doc.get("unlockedBadges") as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
                 val customObjsList = (doc.get("customObjects") as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
@@ -98,6 +99,7 @@ class UserRepository(private val firestoreService: FirestoreService) {
             Log.w(tag, "Local user update skipped for unauthenticated user ${user.uid}")
             return false
         }
+        val db = firestoreService.db ?: return false
 
         val updatedUser = user.copy(uid = targetUid)
         val userMap = updatedUser.toMap().toMutableMap().apply {
@@ -106,7 +108,7 @@ class UserRepository(private val firestoreService: FirestoreService) {
         }
 
         return try {
-            firestoreService.db.collection("users").document(targetUid).set(userMap, SetOptions.merge()).await()
+            db.collection("users").document(targetUid).set(userMap, SetOptions.merge()).await()
             FirebaseDebugLogger.logWriteSuccess("users", targetUid)
             Log.i(tag, "[UserRepository] Successfully updated user document for UID '$targetUid' (Goal: '${updatedUser.goal}', XP: ${updatedUser.xp}, CustomObjects: ${updatedUser.customObjects})")
             true
@@ -123,9 +125,10 @@ class UserRepository(private val firestoreService: FirestoreService) {
 
     suspend fun updateStats(uid: String, screenTimeToday: Long, unlockCountToday: Int) {
         val targetUid = resolveTargetUid(uid) ?: return
+        val db = firestoreService.db ?: return
 
         try {
-            firestoreService.db.collection("users").document(targetUid).set(
+            db.collection("users").document(targetUid).set(
                 mapOf(
                     "screenTimeToday" to screenTimeToday,
                     "unlockCountToday" to unlockCountToday
@@ -153,12 +156,18 @@ class UserRepository(private val firestoreService: FirestoreService) {
         customObjects: List<String>
     ) {
         val targetUid = resolveTargetUid(uid) ?: return
+        val db = firestoreService.db ?: return
 
         try {
-            firestoreService.db.collection("users").document(targetUid).set(
+            val docRef = db.collection("users").document(targetUid)
+            val docSnap = docRef.get().await()
+            val remoteXp = docSnap.getLong("xp")?.toInt() ?: 0
+            val finalXp = maxOf(remoteXp, xp)
+
+            docRef.set(
                 mapOf(
                     "level" to level,
-                    "xp" to xp,
+                    "xp" to finalXp,
                     "coins" to coins,
                     "currentStreak" to streak,
                     "unlockedBadges" to unlockedBadges,
@@ -167,7 +176,7 @@ class UserRepository(private val firestoreService: FirestoreService) {
                 SetOptions.merge()
             ).await()
             FirebaseDebugLogger.logWriteSuccess("users", targetUid)
-            Log.d(tag, "[UserRepository] Profile progress synced to Firestore for UID '$targetUid' - Level: $level, XP: $xp, Coins: $coins, Streak: $streak")
+            Log.d(tag, "[UserRepository] Profile progress synced to Firestore for UID '$targetUid' - Level: $level, XP: $finalXp (max of local $xp & remote $remoteXp), Coins: $coins")
         } catch (e: Exception) {
             FirebaseDebugLogger.logWriteFailure(
                 collection = "users",

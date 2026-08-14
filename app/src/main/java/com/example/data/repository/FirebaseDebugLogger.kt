@@ -6,7 +6,7 @@ object FirebaseDebugLogger {
     private const val TAG = "FirebaseDebug"
 
     /**
-     * Logs detailed debugging information when a Firestore write operation fails.
+     * Logs debugging information when a Firestore write operation fails or is skipped.
      */
     fun logWriteFailure(
         collection: String,
@@ -15,18 +15,15 @@ object FirebaseDebugLogger {
         reason: String
     ) {
         val msg = exception.message ?: ""
-        if (msg.contains("PERMISSION_DENIED") || msg.contains("Missing or insufficient permissions")) {
-            Log.i(TAG, "Cloud sync skipped for $collection/$documentId (Offline mode active or permission restricted)")
+        if (msg.contains("PERMISSION_DENIED") || 
+            msg.contains("Missing or insufficient permissions") ||
+            msg.contains("not available") ||
+            exception is IllegalStateException) {
+            Log.i(TAG, "Cloud sync skipped for $collection/$documentId: $reason ($msg)")
             return
         }
         val stackTraceStr = Log.getStackTraceString(exception)
-        Log.e(TAG, "================ FIREBASE WRITE FAILURE ===============")
-        Log.e(TAG, "Collection:  $collection")
-        Log.e(TAG, "Document ID: $documentId")
-        Log.e(TAG, "Reason:      $reason")
-        Log.e(TAG, "Exception:   ${exception.javaClass.simpleName}: $msg")
-        Log.e(TAG, "Stack Trace:\n$stackTraceStr")
-        Log.e(TAG, "=======================================================")
+        Log.w(TAG, "Cloud write skipped for collection '$collection', doc '$documentId': $reason ($msg)")
     }
 
     /**

@@ -1,8 +1,11 @@
 package com.example.features.settings
 
+import com.example.core.widgets.ResponsiveText
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import android.util.Log
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -42,10 +45,17 @@ fun AddLimitWizard(
     var searchQuery by remember { mutableStateOf("") }
     var showLockedSheet by remember { mutableStateOf(false) }
 
+    // Observe active rules in real-time to hide already-limited apps (Req #11 & #12)
+    val activeRulesState = homeViewModel?.rules?.collectAsState()
+    val activeRules = activeRulesState?.value ?: emptyList()
+    val activeLimitedPackages = remember(activeRules) {
+        activeRules.filter { it.active }.map { it.targetAppPackage }.toSet()
+    }
+
     if (showLockedSheet) {
         com.example.features.paywall.LockedFeatureSheet(
             featureTitle = "Premium Challenge",
-            featureDescription = "Push-ups are free for everyone. Upgrade to Premium to unlock Math, Typing, Walking, and Object Detection challenges!",
+            featureDescription = "Upgrade to Premium to unlock Math, Typing, Box Breathing, Paragraph Summary, and Remember Pattern challenges!",
             onUpgrade = {
                 showLockedSheet = false
                 onOpenPaywall()
@@ -54,14 +64,13 @@ fun AddLimitWizard(
         )
     }
 
-    val filteredApps = remember(allInstalledApps, searchQuery) {
-        if (searchQuery.isBlank()) {
-            allInstalledApps
-        } else {
-            allInstalledApps.filter { app ->
-                app.appName.contains(searchQuery, ignoreCase = true) ||
-                        app.packageName.contains(searchQuery, ignoreCase = true)
-            }
+    // Filter out apps that already have an active limit (Req #11 & #12)
+    val filteredApps = remember(allInstalledApps, activeLimitedPackages, searchQuery) {
+        allInstalledApps.filter { app ->
+            app.packageName !in activeLimitedPackages &&
+            (searchQuery.isBlank() ||
+             app.appName.contains(searchQuery, ignoreCase = true) ||
+             app.packageName.contains(searchQuery, ignoreCase = true))
         }
     }
 
@@ -72,16 +81,34 @@ fun AddLimitWizard(
     var selectedChallenge by remember { mutableStateOf("") }
     var challengeValue by remember { mutableStateOf(20) }
 
-    var object1 by remember { mutableStateOf("Water Bottle") }
-    var object2 by remember { mutableStateOf("Notebook") }
-    var object3 by remember { mutableStateOf("Backpack") }
-    var object4 by remember { mutableStateOf("Pen") }
-    var object5 by remember { mutableStateOf("Chair") }
+    // Exactly 10 allowed object types for Find Object challenge (Req #8)
+    val allowedObjectTypes = remember {
+        emptyList<String>()
+    }
 
-    val challengesList = listOf("Typing challenge", "Math challenge", "Push-ups", "Walk 100m", "Find Object")
 
-    val requiresConfig = selectedChallenge == "Push-ups" || selectedChallenge == "Find Object"
+    val challengesList = listOf(
+        "Typing challenge",
+        "Math challenge",
+        "Box Breathing",
+        "Paragraph Summary",
+        "Remember the Pattern"
+    )
+
+    val requiresConfig = selectedChallenge == "Box Breathing"
     val totalSteps = if (requiresConfig && step >= 2) 3 else 2
+
+    if (showLockedSheet) {
+        com.example.features.paywall.LockedFeatureSheet(
+            featureTitle = "Pro Challenge",
+            featureDescription = "Typing and Math Puzzle challenges are free for everyone. Upgrade to Pro to unlock Box Breathing, Paragraph Summary and all advanced challenges!",
+            onUpgrade = {
+                showLockedSheet = false
+                onOpenPaywall()
+            },
+            onDismiss = { showLockedSheet = false }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -102,7 +129,7 @@ fun AddLimitWizard(
                 }) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                 }
-                Text("Step $step of $totalSteps", style = MaterialTheme.typography.titleMedium, color = TextSecondary, fontWeight = FontWeight.Bold)
+                ResponsiveText("Step $step of $totalSteps", style = MaterialTheme.typography.titleMedium, color = TextSecondary, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextPrimary)
                 }
@@ -127,14 +154,14 @@ fun AddLimitWizard(
                 .weight(1f)) {
                 when (step) {
                     1 -> {
-                        Text("Choose an App", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Select any installed application to create a barrier for.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        ResponsiveText("Choose an App", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        ResponsiveText("Select any installed application to create a barrier for.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                         Spacer(modifier = Modifier.height(16.dp))
 
                         NeumorphicTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search apps...", color = TextMuted) },
+                            placeholder = { ResponsiveText("Search apps...", color = TextMuted) },
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = TextMuted) },
                             trailingIcon = if (searchQuery.isNotEmpty()) {
                                 {
@@ -162,22 +189,26 @@ fun AddLimitWizard(
                         }
                     }
                     2 -> {
-                        Text("Choose Challenge", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Select what you must do to earn access when opening ${selectedAppName.ifEmpty { "the app" }}.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        ResponsiveText("Choose Challenge", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        ResponsiveText("Select what you must do to earn access when opening ${selectedAppName.ifEmpty { "the app" }}.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                         Spacer(modifier = Modifier.height(24.dp))
 
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(challengesList) { chal ->
-                                val isFreeChal = chal == "Push-ups"
+                                val isFree = chal == "Typing challenge" || chal == "Math challenge"
+                                val isLocked = !isPremium && !isFree
                                 SelectionCard(
                                     label = chal,
                                     selected = selectedChallenge == chal,
-                                    isPremiumLocked = !isFreeChal && !isPremium,
+                                    isPremiumLocked = isLocked,
                                     onClick = {
-                                        if (!isFreeChal && !isPremium) {
+                                        if (isLocked) {
                                             showLockedSheet = true
                                         } else {
                                             selectedChallenge = chal
+                                            if (chal == "Box Breathing") {
+                                                challengeValue = 1 // Default 1 cycle
+                                            }
                                         }
                                     }
                                 )
@@ -185,65 +216,37 @@ fun AddLimitWizard(
                         }
                     }
                     3 -> {
-                        Text("Configure Challenge", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Set up your challenge details.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        ResponsiveText("Configure Challenge", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        ResponsiveText("Set up your challenge details.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        if (selectedChallenge == "Find Object") {
-                            Text("Configure 5 Personal Objects", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                            Text("When triggered, Friction will ask you to find one of these:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            NeumorphicTextField(value = object1, onValueChange = { object1 = it }, placeholder = { Text("Object 1 (e.g. Water Bottle)") })
-                            Spacer(modifier = Modifier.height(8.dp))
-                            NeumorphicTextField(value = object2, onValueChange = { object2 = it }, placeholder = { Text("Object 2 (e.g. Notebook)") })
-                            Spacer(modifier = Modifier.height(8.dp))
-                            NeumorphicTextField(value = object3, onValueChange = { object3 = it }, placeholder = { Text("Object 3 (e.g. Backpack)") })
-                            Spacer(modifier = Modifier.height(8.dp))
-                            NeumorphicTextField(value = object4, onValueChange = { object4 = it }, placeholder = { Text("Object 4 (e.g. Pen)") })
-                            Spacer(modifier = Modifier.height(8.dp))
-                            NeumorphicTextField(value = object5, onValueChange = { object5 = it }, placeholder = { Text("Object 5 (e.g. Chair)") })
-                        } else if (selectedChallenge == "Push-ups") {
-                            Text("Target Push-ups", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                            Spacer(modifier = Modifier.height(16.dp))
+                        if (selectedChallenge == "Box Breathing") {
+                            ResponsiveText("Breathing Cycles", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                            ResponsiveText("Select number of cycles (1 to 3 cycles). Each cycle guides 4s inhale, 4s hold, 4s exhale, 4s hold.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(20.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                IconButton(onClick = { if (challengeValue > 5) challengeValue -= 5 }) {
+                                IconButton(onClick = { if (challengeValue > 1) challengeValue-- }) {
                                     Icon(Icons.Default.RemoveCircleOutline, null, tint = FrictionPrimary, modifier = Modifier.size(48.dp))
                                 }
-                                Spacer(modifier = Modifier.width(32.dp))
-                                Text(
-                                    text = "$challengeValue",
-                                    style = MaterialTheme.typography.displayLarge,
+                                Spacer(modifier = Modifier.width(24.dp))
+                                ResponsiveText(
+                                    text = "$challengeValue ${if (challengeValue == 1) "Cycle" else "Cycles"}",
+                                    style = MaterialTheme.typography.headlineMedium,
                                     color = TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.width(32.dp))
-                                IconButton(onClick = { challengeValue += 5 }) {
+                                Spacer(modifier = Modifier.width(24.dp))
+                                IconButton(onClick = { if (challengeValue < 3) challengeValue++ }) {
                                     Icon(Icons.Default.AddCircleOutline, null, tint = FrictionPrimary, modifier = Modifier.size(48.dp))
                                 }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        NeumorphicCard(
-                            containerColor = FrictionAccent.copy(alpha = 0.1f),
-                            borderColor = FrictionAccent.copy(alpha = 0.3f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Lightbulb, null, tint = FrictionAccent)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = if (selectedChallenge == "Push-ups") "$challengeValue Push-ups earns unlock access." else "5 objects configured. A random object will be selected at challenge start.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = FrictionAccent
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -267,7 +270,7 @@ fun AddLimitWizard(
                                     selectedAppPackage = selectedAppPackage,
                                     selectedChallenge = selectedChallenge,
                                     challengeValue = challengeValue,
-                                    objectList = listOf(object1, object2, object3, object4, object5),
+                                    objectList = emptyList(),
                                     homeViewModel = homeViewModel,
                                     onSave = onSave
                                 )
@@ -279,7 +282,7 @@ fun AddLimitWizard(
                             selectedAppPackage = selectedAppPackage,
                             selectedChallenge = selectedChallenge,
                             challengeValue = challengeValue,
-                            objectList = listOf(object1, object2, object3, object4, object5),
+                            objectList = emptyList(),
                             homeViewModel = homeViewModel,
                             onSave = onSave
                         )
@@ -294,6 +297,76 @@ fun AddLimitWizard(
     }
 }
 
+@Composable
+fun ObjectSlotDropdown(
+    label: String,
+    selectedOption: String,
+    availableOptions: List<String>,
+    onOptionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = DarkSurface,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    ResponsiveText(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = FrictionSecondaryText
+                    )
+                    ResponsiveText(
+                        text = selectedOption,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = FrictionAccent
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select Object",
+                    tint = TextPrimary
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(DarkSurface)
+        ) {
+            availableOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        ResponsiveText(
+                            text = option,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary
+                        )
+                    },
+                    onClick = {
+                        onOptionSelected(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 private fun saveLimitRule(
     selectedAppName: String,
     selectedAppPackage: String,
@@ -303,25 +376,29 @@ private fun saveLimitRule(
     homeViewModel: HomeViewModel?,
     onSave: (FrictionRule) -> Unit
 ) {
+    // Validate active rules again to prevent duplicates (Req #11 & #12)
+    val existingRules = homeViewModel?.rules?.value ?: emptyList()
+    val isDuplicate = existingRules.any { it.active && it.targetAppPackage == selectedAppPackage }
+    if (isDuplicate) {
+        Log.w("AddLimitWizard", "Rejected duplicate limit rule for package: $selectedAppPackage")
+        return
+    }
+
     val mappedType = when (selectedChallenge) {
         "Typing challenge" -> "TYPING"
         "Math challenge" -> "MATH"
-        "Push-ups" -> "PUSHUPS"
-        "Walk 100m" -> "WALK"
-        "Find Object" -> "FIND_OBJECT"
+        "Box Breathing" -> "BOX_BREATHING"
+        "Paragraph Summary" -> "PARAGRAPH_SUMMARY"
+        "Remember the Pattern" -> "REMEMBER_PATTERN"
         else -> "TYPING"
     }
 
-    if (mappedType == "FIND_OBJECT") {
-        homeViewModel?.updateCustomObjects(objectList)
-    }
-
     val finalVal = when (mappedType) {
-        "PUSHUPS" -> maxOf(10, challengeValue)
-        "WALK" -> 100
         "MATH" -> 3
         "TYPING" -> 1
-        "FIND_OBJECT" -> 5
+        "REMEMBER_PATTERN" -> 5
+        "BOX_BREATHING" -> challengeValue
+        "PARAGRAPH_SUMMARY" -> 1
         else -> 1
     }
 
@@ -335,7 +412,7 @@ private fun saveLimitRule(
             thresholdMinutes = 0,
             challengeType = mappedType,
             challengeValue = finalVal,
-            penaltyXp = 30
+            penaltyXp = 0
         )
     )
 }
@@ -375,7 +452,7 @@ fun AppSelectionCard(appInfo: AppInfo, selected: Boolean, onClick: () -> Unit) {
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text(
+            ResponsiveText(
                 text = appInfo.appName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
@@ -412,7 +489,7 @@ fun SelectionCard(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = TextPrimary)
+            ResponsiveText(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = TextPrimary)
             Spacer(modifier = Modifier.weight(1f))
             if (isPremiumLocked) {
                 Surface(
@@ -425,7 +502,7 @@ fun SelectionCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(Icons.Default.Lock, null, tint = FrictionAccent, modifier = Modifier.size(12.dp))
-                        Text("PREMIUM", style = MaterialTheme.typography.labelSmall, color = FrictionAccent, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        ResponsiveText("PREMIUM", style = MaterialTheme.typography.labelSmall, color = FrictionAccent, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     }
                 }
             } else if (selected) {

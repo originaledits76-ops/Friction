@@ -12,6 +12,7 @@ import com.example.data.model.User
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 
 sealed class AuthStatus {
@@ -91,6 +93,7 @@ class AuthRepository(private val context: Context) {
             putBoolean("demo_premium", user.premium)
             apply()
         }
+        _authStatus.value = AuthStatus.Authenticated(user)
         Log.d(tag, "[AuthRepository] Local cache updated for UID '${user.uid}': Name='${user.displayName}', Goal='${user.goal}', Age=${user.age}, XP=${user.xp}")
     }
 
@@ -153,69 +156,73 @@ class AuthRepository(private val context: Context) {
     private fun checkInitialAuthState() {
         _authStatus.value = AuthStatus.Loading
         CoroutineScope(Dispatchers.Main).launch {
-            val fbUser = try { firebaseAuth?.currentUser } catch (e: Exception) { null }
-            if (fbUser != null) {
-                val uid = fbUser.uid
-                Log.i(tag, "[checkInitialAuthState] Firebase currentUser found: $uid")
-                
-                // 1. Get local cached user profile first so goal and onboarding details are available immediately
-                val cachedUser = getCachedUser(uid)
-                
-                // 2. Fetch remote user doc from Firestore asynchronously
-                val remoteUser = try {
-                    userRepository.getUser(uid)
-                } catch (e: Exception) {
-                    Log.e(tag, "[checkInitialAuthState] Firestore getUser exception: ${e.message}", e)
-                    null
-                }
-
-                val finalUser = if (remoteUser != null) {
-                    // Merge remote with cached
-                    val merged = remoteUser.copy(
-                        displayName = remoteUser.displayName.ifEmpty { cachedUser.displayName },
-                        age = if (remoteUser.age > 0) remoteUser.age else cachedUser.age,
-                        goal = remoteUser.goal.ifEmpty { cachedUser.goal },
-                        customGoal = remoteUser.customGoal.ifEmpty { cachedUser.customGoal },
-                        motivation = remoteUser.motivation.ifEmpty { cachedUser.motivation },
-                        customObjects = if (remoteUser.customObjects.isNotEmpty()) remoteUser.customObjects else cachedUser.customObjects,
-                        unlockedBadges = if (remoteUser.unlockedBadges.isNotEmpty()) remoteUser.unlockedBadges else cachedUser.unlockedBadges
-                    )
-                    saveCachedUser(merged)
-                    merged
-                } else {
-                    val fallback = cachedUser.copy(
-                        uid = uid,
-                        displayName = fbUser.displayName ?: cachedUser.displayName.ifEmpty { "Friction User" },
-                        email = fbUser.email ?: cachedUser.email,
-                        photoUrl = fbUser.photoUrl?.toString() ?: "",
-                        guest = fbUser.isAnonymous
-                    )
-                    saveCachedUser(fallback)
-                    userRepository.createOrUpdateUser(fallback)
-                    fallback
-                }
-
-                Log.i(tag, "[checkInitialAuthState] Successfully authenticated UID '$uid' (Goal: '${finalUser.goal}')")
-                _authStatus.value = AuthStatus.Authenticated(finalUser)
-            } else {
+            try {
+                val fbUser = try { firebaseAuth?.currentUser } catch (e: Exception) { null }
                 val isDemoLoggedIn = prefs.getBoolean("demo_logged_in", false)
                 val savedUid = prefs.getString("active_uid", null) ?: prefs.getString("demo_uid", null)
                 val anonUid = prefs.getString("anonymous_uid", null)
 
-                val targetUid = savedUid ?: anonUid
+                val targetUid = fbUser?.uid ?: savedUid ?: anonUid
 
-                if (isDemoLoggedIn && targetUid != null) {
+                if (targetUid != null) {
                     val cachedUser = getCachedUser(targetUid)
-                    Log.i(tag, "[checkInitialAuthState] Offline/Cached session restored for UID '$targetUid' (Goal: '${cachedUser.goal}')")
-                    _authStatus.value = AuthStatus.Authenticated(cachedUser)
-                } else if (anonUid != null) {
-                    val cachedUser = getCachedUser(anonUid)
-                    Log.i(tag, "[checkInitialAuthState] Anonymous UID session restored for '$anonUid' (Goal: '${cachedUser.goal}')")
-                    _authStatus.value = AuthStatus.Authenticated(cachedUser)
+                    val finalUser = if (cachedUser.goal.isEmpty()) {
+                        cachedUser.copy(
+                            uid = targetUid,
+                            displayName = cachedUser.displayName.ifEmpty { if (fbUser?.isAnonymous == true || targetUid.startsWith("anon")) "Guest Companion" else "Friction Member" },
+                            guest = fbUser?.isAnonymous ?: targetUid.startsWith("anon") ?: true,
+                            goal = "Reduce Screen Time",
+                            age = if (cachedUser.age > 0) cachedUser.age else 22
+                        )
+                    } else {
+                        cachedUser
+                    }
+                    saveCachedUser(finalUser)
+                    _authStatus.value = AuthStatus.Authenticated(finalUser)
+                    Log.i(tag, "[checkInitialAuthState] Restored active session for UID '$targetUid' (Goal: '${finalUser.goal}')")
+
+                    // Asynchronously attempt remote sync and background Firebase Auth sign-in without blocking UI
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val currentAuthUser = firebaseAuth?.currentUser
+                            if (currentAuthUser == null) {
+                                try {
+                                    val authResult = withTimeoutOrNull(3000L) {
+                                        firebaseAuth?.signInAnonymously()?.await()
+                                    }
+                                    Log.i(tag, "[checkInitialAuthState] Background anonymous sign-in completed. UID: ${authResult?.user?.uid}")
+                                } catch (e: Exception) {
+                                    Log.w(tag, "[checkInitialAuthState] Background anonymous sign-in skipped: ${e.message}")
+                                }
+                            }
+                            
+                            withTimeoutOrNull(2500L) {
+                                val activeUid = firebaseAuth?.currentUser?.uid ?: targetUid
+                                userRepository.createOrUpdateUser(finalUser.copy(uid = activeUid))
+                                val remoteUser = userRepository.getUser(activeUid)
+                                if (remoteUser != null) {
+                                    val merged = remoteUser.copy(
+                                        displayName = remoteUser.displayName.ifEmpty { finalUser.displayName },
+                                        age = if (remoteUser.age > 0) remoteUser.age else finalUser.age,
+                                        goal = remoteUser.goal.ifEmpty { finalUser.goal },
+                                        customGoal = remoteUser.customGoal.ifEmpty { finalUser.customGoal },
+                                        motivation = remoteUser.motivation.ifEmpty { finalUser.motivation }
+                                    )
+                                    saveCachedUser(merged)
+                                    _authStatus.value = AuthStatus.Authenticated(merged)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(tag, "[checkInitialAuthState] Async remote fetch skipped: ${e.message}")
+                        }
+                    }
                 } else {
                     Log.i(tag, "[checkInitialAuthState] No active user session found.")
                     _authStatus.value = AuthStatus.Unauthenticated
                 }
+            } catch (e: Exception) {
+                Log.e(tag, "[checkInitialAuthState] Exception during initial check: ${e.message}", e)
+                _authStatus.value = AuthStatus.Unauthenticated
             }
         }
     }
@@ -234,48 +241,68 @@ class AuthRepository(private val context: Context) {
                     Log.i(tag, "[signInAnonymously] Reusing existing persistent anonymous UID: $anonUid")
                 }
 
-                var fbUser = try { firebaseAuth?.currentUser } catch (e: Exception) { null }
-                if (fbUser == null && firebaseAuth != null) {
+                // Attempt Firebase Anonymous Auth with non-blocking try
+                var fbUser: FirebaseUser? = null
+                val authInstance = firebaseAuth
+                if (authInstance != null) {
                     try {
-                        val authResult = firebaseAuth!!.signInAnonymously().await()
-                        fbUser = authResult.user
-                        Log.i(tag, "[signInAnonymously] FirebaseAuth anonymous sign-in succeeded. FB UID: ${fbUser?.uid}")
+                        val current = authInstance.currentUser
+                        if (current != null && current.isAnonymous) {
+                            fbUser = current
+                        } else {
+                            val authResult = authInstance.signInAnonymously().await()
+                            fbUser = authResult.user
+                        }
+                        Log.i(tag, "[signInAnonymously] FirebaseAuth result. FB UID: ${fbUser?.uid}")
                     } catch (e: Exception) {
-                        Log.w(tag, "[signInAnonymously] FirebaseAuth anonymous sign-in exception: ${e.message}. Using persistent anonymous UID: $anonUid")
+                        Log.w(tag, "[signInAnonymously] FirebaseAuth sign-in exception: ${e.message}")
+                        throw e
                     }
                 }
 
-                val targetUid = fbUser?.uid ?: anonUid
-                prefs.edit().putString("active_uid", targetUid).apply()
+                if (fbUser == null) {
+                    throw Exception("Firebase Auth failed to return a user.")
+                }
+
+                val targetUid = fbUser.uid
+                prefs.edit().putString("active_uid", targetUid).putBoolean("demo_logged_in", true).apply()
 
                 val cachedUser = getCachedUser(targetUid)
-                val existingUser = userRepository.getUser(targetUid)
-
-                val finalUser = existingUser?.let { remote ->
-                    val merged = remote.copy(
-                        displayName = remote.displayName.ifEmpty { cachedUser.displayName.ifEmpty { "Guest Companion" } },
-                        age = if (remote.age > 0) remote.age else cachedUser.age,
-                        goal = remote.goal.ifEmpty { cachedUser.goal },
-                        customGoal = remote.customGoal.ifEmpty { cachedUser.customGoal },
-                        motivation = remote.motivation.ifEmpty { cachedUser.motivation },
-                        guest = true
-                    )
-                    saveCachedUser(merged)
-                    merged
-                } ?: cachedUser.copy(
+                val finalUser = User(
                     uid = targetUid,
-                    displayName = cachedUser.displayName.ifEmpty { "Guest Companion" },
-                    guest = true
+                    displayName = if (cachedUser.displayName.isNotBlank() && cachedUser.displayName != "Friction Companion") cachedUser.displayName else "Guest Companion",
+                    email = cachedUser.email,
+                    guest = true,
+                    createdAt = if (cachedUser.createdAt > 0) cachedUser.createdAt else System.currentTimeMillis(),
+                    premium = cachedUser.premium,
+                    level = cachedUser.level,
+                    xp = cachedUser.xp,
+                    coins = cachedUser.coins,
+                    currentStreak = cachedUser.currentStreak,
+                    age = cachedUser.age,
+                    goal = cachedUser.goal,
+                    customGoal = cachedUser.customGoal,
+                    motivation = cachedUser.motivation,
+                    unlockedBadges = cachedUser.unlockedBadges,
+                    customObjects = cachedUser.customObjects
                 )
 
+                // Save locally so guest session is persistent instantly
                 saveCachedUser(finalUser)
-                userRepository.createOrUpdateUser(finalUser)
 
-                Log.i(tag, "[signInAnonymously] Anonymous login complete for UID '$targetUid' (Goal: '${finalUser.goal}')")
+                // Authenticate UI IMMEDIATELY
                 _authStatus.value = AuthStatus.Authenticated(finalUser)
+                Log.i(tag, "[signInAnonymously] Guest authentication complete for UID '$targetUid'")
+
+                // Synchronously sync with Firestore to ensure user is created
+                try {
+                    userRepository.createOrUpdateUser(finalUser)
+                } catch (e: Exception) {
+                    Log.w(tag, "[signInAnonymously] Firestore sync failed: ${e.message}")
+                }
             } catch (e: Exception) {
                 Log.e(tag, "[signInAnonymously] Error during login: ${e.message}", e)
-                loginWithOfflineFallback(guest = true)
+                _authStatus.value = AuthStatus.Error("Failed to authenticate anonymously: ${e.localizedMessage}")
             }
         }
     }
@@ -285,7 +312,7 @@ class AuthRepository(private val context: Context) {
         _authStatus.value = AuthStatus.Loading
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                Log.i(tag, "[AuthFlow] Step 2: Launching official Google Account Picker")
+                Log.i(tag, "[AuthFlow] Step 2: Launching official Google Account Picker on Main thread")
                 val credentialManager = CredentialManager.create(activity)
                 
                 val googleIdOption = GetGoogleIdOption.Builder()
@@ -298,102 +325,69 @@ class AuthRepository(private val context: Context) {
                     .addCredentialOption(googleIdOption)
                     .build()
 
-                val result: GetCredentialResponse = withContext(Dispatchers.IO) {
-                    credentialManager.getCredential(activity, request)
-                }
+                // Execute getCredential directly on Main Thread so UI dialog displays properly
+                val result: GetCredentialResponse = credentialManager.getCredential(activity, request)
 
-                val credential = result.credential
-                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                if (result.credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
                     val idToken = googleIdTokenCredential.idToken
                     val email = googleIdTokenCredential.id
                     val displayName = googleIdTokenCredential.displayName ?: ""
                     
                     Log.i(tag, "[AuthFlow] Step 3: Google account selected. Email: '$email', Name: '$displayName'")
-                    Log.i(tag, "[AuthFlow] Step 4: OAuth ID token received (Token length: ${idToken.length})")
                     
-                    Log.i(tag, "[AuthFlow] Step 5: Firebase authentication started")
                     val fbCredential = GoogleAuthProvider.getCredential(idToken, null)
-                    val authInstance = firebaseAuth ?: throw IllegalStateException("Firebase Auth service is unavailable")
-                    val authResult = authInstance.signInWithCredential(fbCredential).await()
-                    val fbUser = authResult.user
+                    var fbUser: FirebaseUser? = null
+                    try {
+                        val authInstance = firebaseAuth
+                        if (authInstance != null) {
+                            val authResult = authInstance.signInWithCredential(fbCredential).await()
+                            fbUser = authResult.user
+                        }
+                    } catch (e: Exception) {
+                        Log.w(tag, "[AuthFlow] Firebase Auth exception during sign in with credential: ${e.message}")
+                        throw e
+                    }
                     
-                    if (fbUser != null && firebaseAuth?.currentUser != null) {
-                        val uid = fbUser.uid
-                        Log.i(tag, "[AuthFlow] Step 6: Firebase authentication successful. FirebaseAuth currentUser UID: '$uid'")
-                        
-                        Log.i(tag, "[AuthFlow] Step 7: Firestore profile lookup for UID '$uid'")
-                        val existingUser = userRepository.getUser(uid)
-                        val cachedUser = getCachedUser(uid)
-                        
-                        val finalUser = if (existingUser != null && existingUser.goal.isNotEmpty()) {
-                            Log.i(tag, "[AuthFlow] Step 8: Firestore profile document EXISTS for UID '$uid'. Goal: '${existingUser.goal}'")
-                            val updated = existingUser.copy(
-                                lastLogin = System.currentTimeMillis(),
-                                displayName = fbUser.displayName ?: existingUser.displayName.ifEmpty { displayName },
-                                email = fbUser.email ?: existingUser.email,
-                                photoUrl = fbUser.photoUrl?.toString() ?: existingUser.photoUrl,
-                                guest = false
-                            )
-                            saveCachedUser(updated)
-                            userRepository.createOrUpdateUser(updated)
-                            updated
-                        } else {
-                            Log.i(tag, "[AuthFlow] Step 8: Firestore profile document NEW or INCOMPLETE for UID '$uid'")
-                            val newUser = User(
-                                uid = uid,
-                                displayName = fbUser.displayName ?: displayName.ifEmpty { "Friction Member" },
-                                email = fbUser.email ?: email,
-                                photoUrl = fbUser.photoUrl?.toString() ?: "",
-                                guest = false,
-                                goal = existingUser?.goal ?: cachedUser.goal, // empty if fresh user
-                                age = if ((existingUser?.age ?: 0) > 0) existingUser!!.age else cachedUser.age,
-                                motivation = existingUser?.motivation ?: cachedUser.motivation
-                            )
-                            saveCachedUser(newUser)
-                            userRepository.createOrUpdateUser(newUser)
-                            newUser
+                    if (fbUser == null) {
+                        throw Exception("Firebase Auth failed to return a user from Google Credential.")
+                    }
+                    
+                    val uid = fbUser.uid
+                    prefs.edit().putString("active_uid", uid).putBoolean("demo_logged_in", true).apply()
+                    
+                    val cachedUser = getCachedUser(uid)
+                    val finalUser = User(
+                        uid = uid,
+                        displayName = fbUser.displayName ?: displayName.ifEmpty { cachedUser.displayName.ifEmpty { "Google Member" } },
+                        email = fbUser.email ?: email.ifEmpty { cachedUser.email },
+                        photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: cachedUser.photoUrl,
+                        guest = false,
+                        goal = cachedUser.goal,
+                        age = if (cachedUser.age > 0) cachedUser.age else 25,
+                        motivation = cachedUser.motivation
+                    )
+                    
+                    saveCachedUser(finalUser)
+                    _authStatus.value = AuthStatus.Authenticated(finalUser)
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            userRepository.createOrUpdateUser(finalUser)
+                        } catch (e: Exception) {
+                            Log.w(tag, "[AuthFlow] Async Firestore profile save skipped: ${e.message}")
                         }
-                        
-                        if (finalUser.goal.isEmpty()) {
-                            Log.i(tag, "[AuthFlow] Step 9: Navigation decision -> First-time user detected. Directing to User Introduction page.")
-                        } else {
-                            Log.i(tag, "[AuthFlow] Step 9: Navigation decision -> Returning user detected (Goal: '${finalUser.goal}'). Directing directly to Dashboard.")
-                        }
-                        _authStatus.value = AuthStatus.Authenticated(finalUser)
-                    } else {
-                        Log.e(tag, "[AuthFlow] Firebase user is null after sign in")
-                        _authStatus.value = AuthStatus.Error("Firebase authentication failed. Could not verify user credentials.")
                     }
                 } else {
-                    Log.e(tag, "[AuthFlow] Unsupported credential type received: ${credential.type}")
-                    _authStatus.value = AuthStatus.Error("Received unsupported authentication credential format.")
+                    Log.i(tag, "[AuthFlow] CredentialManager returned unsupported type.")
+                    _authStatus.value = AuthStatus.Error("Unsupported credential type.")
                 }
             } catch (e: GetCredentialCancellationException) {
-                Log.i(tag, "[AuthFlow] Google account selection cancelled by user. Remaining on Login screen.")
+                Log.i(tag, "[AuthFlow] Google account selection cancelled by user.")
                 _authStatus.value = AuthStatus.Unauthenticated
-            } catch (e: GetCredentialException) {
-                Log.w(tag, "[AuthFlow] Credential Manager Exception (${e.javaClass.simpleName}): ${e.message}")
-                val isCancelled = e.message?.contains("cancel", ignoreCase = true) == true
-                if (isCancelled) {
-                    Log.i(tag, "[AuthFlow] Sign-in flow cancelled by user.")
-                    _authStatus.value = AuthStatus.Unauthenticated
-                } else {
-                    val userMsg = when {
-                        e.message?.contains("No credentials available", ignoreCase = true) == true ->
-                            "No Google accounts found on this device or Google Play Services requires updating. Please ensure a Google account is added in device settings."
-                        else -> "Google Sign-In failed: ${e.message ?: "Unable to complete Google Sign-In."}"
-                    }
-                    _authStatus.value = AuthStatus.Error(userMsg)
-                }
             } catch (e: Exception) {
-                Log.e(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}", e)
-                val msg = if (e.message?.contains("network", ignoreCase = true) == true) {
-                    "Network error during authentication. Please check your internet connection."
-                } else {
-                    "Authentication error: ${e.message ?: "Sign-in process failed."}"
-                }
-                _authStatus.value = AuthStatus.Error(msg)
+                Log.w(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}.")
+                _authStatus.value = AuthStatus.Error("Google Sign-In failed: ${e.localizedMessage}")
             }
         }
     }
@@ -414,9 +408,7 @@ class AuthRepository(private val context: Context) {
                     .addCredentialOption(googleIdOption)
                     .build()
 
-                val result: GetCredentialResponse = withContext(Dispatchers.IO) {
-                    credentialManager.getCredential(activity, request)
-                }
+                val result: GetCredentialResponse = credentialManager.getCredential(activity, request)
 
                 val credential = result.credential
                 if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -426,8 +418,8 @@ class AuthRepository(private val context: Context) {
                     val displayName = googleIdTokenCredential.displayName ?: ""
 
                     val fbCredential = GoogleAuthProvider.getCredential(idToken, null)
-                    val authInstance = firebaseAuth ?: throw IllegalStateException("Firebase Auth service is unavailable")
-                    val currentFbUser = authInstance.currentUser
+                    val authInstance = firebaseAuth
+                    val currentFbUser = authInstance?.currentUser
 
                     if (currentFbUser != null && currentFbUser.isAnonymous) {
                         try {
@@ -448,25 +440,8 @@ class AuthRepository(private val context: Context) {
                             Log.i(tag, "[LinkAccount] Successfully linked Google credential to anonymous user UID '$uid'")
                             _authStatus.value = AuthStatus.Authenticated(updatedUser)
                         } catch (e: Exception) {
-                            Log.w(tag, "[LinkAccount] Link failed (account collision or error): ${e.message}. Signing in directly with Google.")
-                            val authResult = authInstance.signInWithCredential(fbCredential).await()
-                            val fbUser = authResult.user
-                            if (fbUser != null) {
-                                val uid = fbUser.uid
-                                val existingUser = userRepository.getUser(uid) ?: getCachedUser(uid)
-                                val updatedUser = existingUser.copy(
-                                    uid = uid,
-                                    guest = false,
-                                    displayName = fbUser.displayName ?: displayName.ifEmpty { existingUser.displayName },
-                                    email = fbUser.email ?: email.ifEmpty { existingUser.email },
-                                    photoUrl = fbUser.photoUrl?.toString() ?: existingUser.photoUrl
-                                )
-                                saveCachedUser(updatedUser)
-                                userRepository.createOrUpdateUser(updatedUser)
-                                _authStatus.value = AuthStatus.Authenticated(updatedUser)
-                            } else {
-                                throw Exception("Google account sign-in failed during linking.")
-                            }
+                            Log.w(tag, "[LinkAccount] Link failed: ${e.message}. Signing in directly with Google.")
+                            signInWithGoogle(activity)
                         }
                     } else {
                         signInWithGoogle(activity)
@@ -479,27 +454,9 @@ class AuthRepository(private val context: Context) {
                 checkInitialAuthState()
             } catch (e: Exception) {
                 Log.e(tag, "[LinkAccount] Error during Google account linking: ${e.message}", e)
-                _authStatus.value = AuthStatus.Error("Failed to link Google account: ${e.message ?: "Unknown error"}")
+                _authStatus.value = AuthStatus.Error("Account linking failed: ${e.localizedMessage}")
             }
         }
-    }
-
-    private fun loginWithOfflineFallback(guest: Boolean) {
-        val anonUid = prefs.getString("anonymous_uid", null) ?: "offline_guest_${(1000..9999).random()}"
-        prefs.edit().putString("anonymous_uid", anonUid).apply()
-        
-        val uid = if (guest) anonUid else "offline_user_alok"
-        val cached = getCachedUser(uid)
-        
-        val offlineUser = cached.copy(
-            uid = uid,
-            displayName = cached.displayName.ifEmpty { if (guest) "Friction Guest" else "Alok Choubey" },
-            email = cached.email.ifEmpty { if (guest) "" else "alokchoubey892@gmail.com" },
-            guest = guest
-        )
-
-        saveCachedUser(offlineUser)
-        _authStatus.value = AuthStatus.Authenticated(offlineUser)
     }
 
     fun logout() {

@@ -10,7 +10,8 @@ class BlockedAppsRepository(private val firestoreService: FirestoreService) {
 
     suspend fun saveBlockedApp(userUid: String, packageName: String, ruleId: String) {
         val targetUid = SafeFirebase.currentUser?.uid ?: userUid
-        if (targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
+        val db = firestoreService.db
+        if (db == null || targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
 
         val docId = "${targetUid}_$packageName"
         try {
@@ -20,7 +21,7 @@ class BlockedAppsRepository(private val firestoreService: FirestoreService) {
                 "ruleId" to ruleId,
                 "timestamp" to System.currentTimeMillis()
             )
-            firestoreService.db.collection("blocked_apps").document(docId)
+            db.collection("blocked_apps").document(docId)
                 .set(blockedMap, SetOptions.merge()).await()
             FirebaseDebugLogger.logWriteSuccess("blocked_apps", docId)
         } catch (e: Exception) {
@@ -35,11 +36,12 @@ class BlockedAppsRepository(private val firestoreService: FirestoreService) {
 
     suspend fun removeBlockedApp(userUid: String, packageName: String) {
         val targetUid = SafeFirebase.currentUser?.uid ?: userUid
-        if (targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
+        val db = firestoreService.db
+        if (db == null || targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
 
         val docId = "${targetUid}_$packageName"
         try {
-            firestoreService.db.collection("blocked_apps").document(docId).delete().await()
+            db.collection("blocked_apps").document(docId).delete().await()
             FirebaseDebugLogger.logWriteSuccess("blocked_apps", docId)
         } catch (e: Exception) {
             FirebaseDebugLogger.logWriteFailure(

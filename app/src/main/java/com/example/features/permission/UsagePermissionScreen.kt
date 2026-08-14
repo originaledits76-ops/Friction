@@ -1,5 +1,6 @@
 package com.example.features.permission
 
+import com.example.core.widgets.ResponsiveText
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.Canvas
@@ -78,7 +79,7 @@ fun UsagePermissionScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(
+                ResponsiveText(
                     text = "Screen Time Access",
                     style = MaterialTheme.typography.displayMedium,
                     color = FrictionText,
@@ -87,7 +88,7 @@ fun UsagePermissionScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
+                ResponsiveText(
                     text = "To help you break mindless scrolling habits, Friction needs to analyze which apps are taking your attention.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = FrictionSecondaryText,
@@ -157,7 +158,7 @@ fun UsagePermissionScreen(
                     onClick = onCheckPermissionAgain,
                     colors = ButtonDefaults.textButtonColors(contentColor = FrictionPrimary)
                 ) {
-                    Text(
+                    ResponsiveText(
                         text = "I have granted access. Check status.",
                         style = MaterialTheme.typography.labelLarge
                     )
@@ -201,14 +202,14 @@ fun PermissionValueRow(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                ResponsiveText(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = FrictionText
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
+                ResponsiveText(
                     text = desc,
                     style = MaterialTheme.typography.bodySmall,
                     color = FrictionSecondaryText,

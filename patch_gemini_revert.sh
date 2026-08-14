@@ -1,0 +1,1 @@
+sed -i 's/val groqApiKey = try { "" } catch (e: Exception) { "" }/val groqApiKey = try { BuildConfig.GROQ_API_KEY } catch (e: Exception) { "" }/' app/src/main/java/com/example/data/service/GeminiService.kt

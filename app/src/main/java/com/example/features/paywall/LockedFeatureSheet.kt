@@ -1,5 +1,6 @@
 package com.example.features.paywall
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -69,7 +70,7 @@ fun LockedFeatureSheet(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
+                ResponsiveText(
                     text = featureTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
@@ -77,7 +78,7 @@ fun LockedFeatureSheet(
                     textAlign = TextAlign.Center
                 )
 
-                Text(
+                ResponsiveText(
                     text = featureDescription,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
@@ -97,8 +98,8 @@ fun LockedFeatureSheet(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Unlock all 5 friction blockers, unlimited app limits, and AI coaching.",
+                    ResponsiveText(
+                        text = "Unlock 100% ad-free experience, all 5 friction blockers, unlimited app limits, and AI coaching.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextPrimary
                     )
@@ -119,7 +120,7 @@ fun LockedFeatureSheet(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
+                    ResponsiveText(
                         text = "Not Now",
                         style = MaterialTheme.typography.labelLarge,
                         color = TextMuted

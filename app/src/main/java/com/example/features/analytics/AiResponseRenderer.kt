@@ -1,5 +1,6 @@
 package com.example.features.analytics
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

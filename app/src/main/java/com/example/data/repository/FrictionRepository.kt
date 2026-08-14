@@ -32,7 +32,7 @@ class FrictionRepository(
     private val challengeRepository = ChallengeRepository(firestoreService, dao)
 
     private val currentUserUid: String?
-        get() = SafeFirebase.currentUser?.uid
+        get() = SafeFirebase.currentUser?.uid ?: context.getSharedPreferences("friction_prefs", Context.MODE_PRIVATE).getString("active_uid", null) ?: context.getSharedPreferences("friction_prefs", Context.MODE_PRIVATE).getString("demo_uid", null)
 
     fun getLocalChallengeHistoryFlow(userUid: String): Flow<List<com.example.data.model.ChallengeHistoryEntity>> {
         return dao.getChallengeHistory(userUid)
@@ -84,6 +84,14 @@ class FrictionRepository(
         return data
     }
 
+    fun getUsageDataForPeriod(startTime: Long, endTime: Long): List<AppUsageInfo> {
+        return screenTimeService.getUsageDataForPeriod(startTime, endTime)
+    }
+
+    fun getDetailedAnalyticsForPeriod(startTime: Long, endTime: Long): ScreenTimeService.DetailedAnalytics {
+        return screenTimeService.getDetailedAnalyticsForPeriod(startTime, endTime)
+    }
+
     fun getDailyHistory(): Map<String, Long> = screenTimeService.getDailyHistory()
 
     fun getWeeklyHistory(): Map<String, Long> = screenTimeService.getWeeklyHistory()
@@ -103,7 +111,8 @@ class FrictionRepository(
     suspend fun insertRule(rule: FrictionRule) {
         dao.insertRule(rule)
         val uid = currentUserUid
-        if (uid != null) {
+        val db = firestoreService.db
+        if (uid != null && db != null) {
             try {
                 val ruleMap = mapOf(
                     "userUid" to uid,
@@ -116,7 +125,7 @@ class FrictionRepository(
                     "active" to rule.active,
                     "createdAt" to rule.createdAt
                 )
-                firestoreService.db.collection("rules").document("${uid}_${rule.id}")
+                db.collection("rules").document("${uid}_${rule.id}")
                     .set(ruleMap, SetOptions.merge()).await()
                 
                 // Track blocked app package name
@@ -128,7 +137,7 @@ class FrictionRepository(
                     }
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Failed to sync rule insert to Firestore: ${e.message}")
+                Log.i(tag, "Rule insert remote sync note: ${e.message}")
             }
         }
     }
@@ -136,12 +145,13 @@ class FrictionRepository(
     suspend fun deleteRule(id: String) {
         dao.deleteRule(id)
         val uid = currentUserUid
-        if (uid != null) {
+        val db = firestoreService.db
+        if (uid != null && db != null) {
             try {
-                firestoreService.db.collection("rules").document("${uid}_$id").delete().await()
+                db.collection("rules").document("${uid}_$id").delete().await()
                 Log.d(tag, "Deleted rule from Firestore: ${uid}_$id")
             } catch (e: Exception) {
-                Log.e(tag, "Failed to delete rule from Firestore: ${e.message}")
+                Log.i(tag, "Rule delete remote sync note: ${e.message}")
             }
         }
     }
@@ -156,6 +166,10 @@ class FrictionRepository(
         return friendsRepository.getFriendsFlow(userUid)
     }
 
+    suspend fun searchUsers(currentUid: String, query: String): List<FriendInfo> {
+        return friendsRepository.searchUsers(currentUid, query)
+    }
+
     suspend fun sendFriendRequest(userUid: String, targetEmail: String): Boolean {
         return friendsRepository.sendFriendRequest(userUid, targetEmail)
     }
@@ -166,6 +180,18 @@ class FrictionRepository(
 
     suspend fun rejectFriendRequest(userUid: String, friendUid: String) {
         friendsRepository.rejectFriendRequest(userUid, friendUid)
+    }
+
+    suspend fun getAllAppUsersWithStatus(currentUid: String): List<FriendInfo> {
+        return friendsRepository.getAllAppUsersWithStatus(currentUid)
+    }
+
+    suspend fun sendFriendRequestToUid(userUid: String, targetUid: String): Boolean {
+        return friendsRepository.sendFriendRequestToUid(userUid, targetUid)
+    }
+
+    suspend fun getBuddyDetails(buddyUid: String): com.example.data.model.BuddyDetails? {
+        return friendsRepository.getBuddyDetails(buddyUid)
     }
 
     /**
@@ -198,8 +224,9 @@ class FrictionRepository(
     private suspend fun syncRulesFromCloud() {
         val uid = currentUserUid ?: return
         if (uid.startsWith("guest_") || uid.startsWith("offline_")) return
+        val db = firestoreService.db ?: return
         try {
-            val rulesSnapshot = firestoreService.db.collection("rules")
+            val rulesSnapshot = db.collection("rules")
                 .whereEqualTo("userUid", uid)
                 .get().await()
 
@@ -263,8 +290,9 @@ class FrictionRepository(
         val entry = com.example.data.model.AppClassification(pkg, name, classification)
         dao.insertAppClassification(entry)
         val uid = currentUserUid
-        if (uid != null) {
-            firestoreService.db.collection("users").document(uid)
+        val db = firestoreService.db
+        if (uid != null && db != null) {
+            db.collection("users").document(uid)
                 .collection("appClassifications").document(pkg.replace("/", "_"))
                 .set(mapOf(
                     "packageName" to pkg,

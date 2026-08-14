@@ -1,5 +1,6 @@
 package com.example.features.onboarding
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -54,8 +55,8 @@ fun OnboardingScreen(
 ) {
     var step by remember { mutableIntStateOf(1) }
 
-    var name by remember { mutableStateOf(initialName) }
-    var ageStr by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName.ifEmpty { "Guest Companion" }) }
+    var ageStr by remember { mutableStateOf("22") }
     var selectedGoalTitle by remember { mutableStateOf("") }
     var customGoal by remember { mutableStateOf("") }
     var motivation by remember { mutableStateOf("") }
@@ -159,7 +160,7 @@ fun OnboardingScreen(
                         border = BorderStroke(1.dp, FrictionPrimary.copy(alpha = 0.25f)),
                         modifier = Modifier.shadow(4.dp, RoundedCornerShape(24.dp))
                     ) {
-                        Text(
+                        ResponsiveText(
                             text = "STEP $step OF 3",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
@@ -244,7 +245,7 @@ fun OnboardingScreen(
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
+                                    ResponsiveText(
                                         text = "Friction Profile",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
@@ -253,7 +254,7 @@ fun OnboardingScreen(
                                     )
                                 }
 
-                                Text(
+                                ResponsiveText(
                                     text = "Claim your identity",
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = TextPrimary,
@@ -261,7 +262,7 @@ fun OnboardingScreen(
                                     letterSpacing = (-0.5).sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
+                                ResponsiveText(
                                     text = "Friction is tailored around you. Let's start with basic setup to calibrate your offline challenge modules.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
@@ -271,7 +272,7 @@ fun OnboardingScreen(
                                 Spacer(modifier = Modifier.height(32.dp))
 
                                 // Name Input Field
-                                Text(
+                                ResponsiveText(
                                     text = "YOUR FULL NAME",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary,
@@ -282,7 +283,7 @@ fun OnboardingScreen(
                                 OutlinedTextField(
                                     value = name,
                                     onValueChange = { name = it },
-                                    placeholder = { Text("e.g. Alex Rivera", color = TextMuted) },
+                                    placeholder = { ResponsiveText("e.g. Alex Rivera", color = TextMuted) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Person,
@@ -316,7 +317,7 @@ fun OnboardingScreen(
                                 Spacer(modifier = Modifier.height(24.dp))
 
                                 // Age Input Field
-                                Text(
+                                ResponsiveText(
                                     text = "YOUR AGE",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary,
@@ -327,7 +328,7 @@ fun OnboardingScreen(
                                 OutlinedTextField(
                                     value = ageStr,
                                     onValueChange = { ageStr = it.filter { char -> char.isDigit() }.take(3) },
-                                    placeholder = { Text("e.g. 24", color = TextMuted) },
+                                    placeholder = { ResponsiveText("e.g. 24", color = TextMuted) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Cake,
@@ -361,7 +362,7 @@ fun OnboardingScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(start = 4.dp)
                                 ) {
-                                    Text(
+                                    ResponsiveText(
                                         text = "Quick Select:",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = TextMuted,
@@ -378,7 +379,7 @@ fun OnboardingScreen(
                                                 if (isSelected) FrictionPrimary else Color(0x10FFFFFF)
                                             )
                                         ) {
-                                            Text(
+                                            ResponsiveText(
                                                 text = chipAge,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
@@ -416,7 +417,7 @@ fun OnboardingScreen(
                                                     ),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
+                                                ResponsiveText(
                                                     text = name.take(1).uppercase(),
                                                     style = MaterialTheme.typography.titleLarge,
                                                     fontWeight = FontWeight.Bold,
@@ -426,7 +427,7 @@ fun OnboardingScreen(
                                             Spacer(modifier = Modifier.width(16.dp))
                                             Column {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(
+                                                    ResponsiveText(
                                                         text = name.trim(),
                                                         style = MaterialTheme.typography.titleMedium,
                                                         fontWeight = FontWeight.Bold,
@@ -437,7 +438,7 @@ fun OnboardingScreen(
                                                         shape = RoundedCornerShape(8.dp),
                                                         color = FrictionAccent.copy(alpha = 0.15f)
                                                     ) {
-                                                        Text(
+                                                        ResponsiveText(
                                                             text = "LEVEL 1 FOCUSED",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = FrictionAccent,
@@ -448,7 +449,7 @@ fun OnboardingScreen(
                                                     }
                                                 }
                                                 Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
+                                                ResponsiveText(
                                                     text = if (ageStr.isNotBlank()) "Age: $ageStr • Ready to cultivate mindfulness." else "Focus Neophyte",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = TextSecondary
@@ -480,7 +481,7 @@ fun OnboardingScreen(
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
+                                    ResponsiveText(
                                         text = "Intentionality Matrix",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
@@ -489,7 +490,7 @@ fun OnboardingScreen(
                                     )
                                 }
 
-                                Text(
+                                ResponsiveText(
                                     text = "Your main focus goal",
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = TextPrimary,
@@ -497,7 +498,7 @@ fun OnboardingScreen(
                                     letterSpacing = (-0.5).sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
+                                ResponsiveText(
                                     text = "Choose the core area you want Friction to monitor and guard against mindless dopamine loops.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
@@ -556,7 +557,7 @@ fun OnboardingScreen(
 
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text(
+                                                        ResponsiveText(
                                                             text = option.title,
                                                             style = MaterialTheme.typography.titleSmall,
                                                             fontWeight = FontWeight.Bold,
@@ -568,7 +569,7 @@ fun OnboardingScreen(
                                                                 shape = RoundedCornerShape(8.dp),
                                                                 color = FrictionAccent.copy(alpha = 0.15f)
                                                             ) {
-                                                                Text(
+                                                                ResponsiveText(
                                                                     text = option.badge,
                                                                     style = MaterialTheme.typography.labelSmall,
                                                                     color = FrictionAccent,
@@ -580,7 +581,7 @@ fun OnboardingScreen(
                                                         }
                                                     }
                                                     Spacer(modifier = Modifier.height(4.dp))
-                                                    Text(
+                                                    ResponsiveText(
                                                         text = option.description,
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = TextSecondary,
@@ -609,7 +610,7 @@ fun OnboardingScreen(
                                     exit = shrinkVertically() + fadeOut()
                                 ) {
                                     Column(modifier = Modifier.padding(top = 20.dp)) {
-                                        Text(
+                                        ResponsiveText(
                                             text = "DESCRIBE YOUR CUSTOM GOAL",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = TextSecondary,
@@ -620,7 +621,7 @@ fun OnboardingScreen(
                                         OutlinedTextField(
                                             value = customGoal,
                                             onValueChange = { customGoal = it },
-                                            placeholder = { Text("e.g. Master piano practice without distractions", color = TextMuted) },
+                                            placeholder = { ResponsiveText("e.g. Master piano practice without distractions", color = TextMuted) },
                                             singleLine = true,
                                             shape = RoundedCornerShape(20.dp),
                                             colors = OutlinedTextFieldDefaults.colors(
@@ -658,7 +659,7 @@ fun OnboardingScreen(
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
+                                    ResponsiveText(
                                         text = "Mindfulness Anchor",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
@@ -667,7 +668,7 @@ fun OnboardingScreen(
                                     )
                                 }
 
-                                Text(
+                                ResponsiveText(
                                     text = "Define your 'Why'",
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = TextPrimary,
@@ -675,7 +676,7 @@ fun OnboardingScreen(
                                     letterSpacing = (-0.5).sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
+                                ResponsiveText(
                                     text = "Your sacred focus why will be displayed during delay counters to act as a psychological barrier and break instant scrolling.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
@@ -706,7 +707,7 @@ fun OnboardingScreen(
                                                 tint = FrictionAccent.copy(alpha = 0.3f),
                                                 modifier = Modifier.size(36.dp)
                                             )
-                                            Text(
+                                            ResponsiveText(
                                                 text = "${motivation.length}/180",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (motivation.length > 180) FrictionError else TextMuted,
@@ -718,7 +719,7 @@ fun OnboardingScreen(
                                             value = motivation,
                                             onValueChange = { if (it.length <= 180) motivation = it },
                                             placeholder = {
-                                                Text(
+                                                ResponsiveText(
                                                     text = "I want to reclaim my life, focus on my exam, and be present with those who matter to me...",
                                                     color = TextMuted,
                                                     style = MaterialTheme.typography.bodyMedium
@@ -748,7 +749,7 @@ fun OnboardingScreen(
                                 Spacer(modifier = Modifier.height(20.dp))
 
                                 // Tap to Insert Suggestion Chips
-                                Text(
+                                ResponsiveText(
                                     text = "SUGGESTIONS (TAP TO INSERT)",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary,
@@ -778,7 +779,7 @@ fun OnboardingScreen(
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(10.dp))
-                                                Text(
+                                                ResponsiveText(
                                                     text = idea,
                                                     style = MaterialTheme.typography.bodySmall,
                                                     fontWeight = FontWeight.SemiBold,
@@ -806,7 +807,7 @@ fun OnboardingScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text(
+                                            ResponsiveText(
                                                 text = "THE FOCUS COVENANT",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = FrictionAccent,
@@ -829,24 +830,24 @@ fun OnboardingScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text("Sovereign:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                            Text(name.ifBlank { "Unsigned" }, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                            ResponsiveText("Sovereign:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                            ResponsiveText(name.ifBlank { "Unsigned" }, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Row(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text("Caliber:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                            Text(if (ageStr.isNotBlank()) "$ageStr Winters" else "N/A", style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                            ResponsiveText("Caliber:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                            ResponsiveText(if (ageStr.isNotBlank()) "$ageStr Winters" else "N/A", style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Row(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text("Focus Vector:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                            Text(
+                                            ResponsiveText("Focus Vector:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                            ResponsiveText(
                                                 text = if (selectedGoalTitle == "Other") customGoal.ifBlank { "Custom Vector" } else selectedGoalTitle.ifBlank { "Unspecified" },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = TextPrimary,
@@ -909,7 +910,7 @@ fun OnboardingScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text(
+                        ResponsiveText(
                             text = if (step < 3) "Proceed" else "Seal the Pact",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.ExtraBold,

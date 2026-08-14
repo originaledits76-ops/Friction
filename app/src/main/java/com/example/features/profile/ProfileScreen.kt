@@ -1,5 +1,6 @@
 package com.example.features.profile
 
+import com.example.core.widgets.ResponsiveText
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -104,7 +105,7 @@ fun ProfileScreen(
                     }
                 }
 
-                Text(
+                ResponsiveText(
                     text = "Profile",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
@@ -156,7 +157,7 @@ fun ProfileScreen(
                                 )
                             )
                     ) {
-                        Text(
+                        ResponsiveText(
                             text = nameState.ifEmpty { "C" }.take(1).uppercase(),
                             color = Color(0xFF111315),
                             fontWeight = FontWeight.Bold,
@@ -166,7 +167,7 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Text(
+                    ResponsiveText(
                         text = nameState.ifEmpty { "Friction Companion" },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
@@ -193,7 +194,7 @@ fun ProfileScreen(
                                 tint = if (user.guest) FrictionSecondary else FrictionPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
-                            Text(
+                            ResponsiveText(
                                 text = if (user.guest) "Guest Member" else "Google Member",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -232,7 +233,7 @@ fun ProfileScreen(
             }
 
             // 2. Statistics Section
-            Text(
+            ResponsiveText(
                 text = "Mindfulness Statistics",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
@@ -279,7 +280,7 @@ fun ProfileScreen(
                             contentDescription = "Personal Information",
                             tint = FrictionPrimary
                         )
-                        Text(
+                        ResponsiveText(
                             text = "Personal Information",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
@@ -319,7 +320,7 @@ fun ProfileScreen(
 
                     // Classification Preference Choice
                     Column {
-                        Text(
+                        ResponsiveText(
                             text = "App Classification Preference",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
@@ -340,7 +341,7 @@ fun ProfileScreen(
                                         .weight(1f)
                                         .clickable { focusPreference = pref }
                                 ) {
-                                    Text(
+                                    ResponsiveText(
                                         text = pref,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
@@ -395,14 +396,14 @@ fun ProfileHeaderPill(
                 tint = iconColor,
                 modifier = Modifier.size(18.dp)
             )
-            Text(
+            ResponsiveText(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
         }
-        Text(
+        ResponsiveText(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = TextMuted,
@@ -444,13 +445,13 @@ fun StatGlassTile(
                 )
             }
             Column {
-                Text(
+                ResponsiveText(
                     text = value,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
-                Text(
+                ResponsiveText(
                     text = title,
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted,

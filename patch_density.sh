@@ -1,0 +1,1 @@
+sed -i -e '/import androidx.compose.ui.platform.LocalConfiguration/a import androidx.compose.ui.platform.LocalDensity\nimport androidx.compose.ui.unit.Density' app/src/main/java/com/example/ui/theme/Theme.kt

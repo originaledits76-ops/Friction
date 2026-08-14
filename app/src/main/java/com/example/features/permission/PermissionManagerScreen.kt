@@ -1,5 +1,6 @@
 package com.example.features.permission
 
+import com.example.core.widgets.ResponsiveText
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -62,10 +63,6 @@ fun PermissionManagerScreen(
         }
     }
 
-    fun checkCameraGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-    }
-
     fun checkActivityGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
@@ -93,7 +90,6 @@ fun PermissionManagerScreen(
     var isUsageGranted by remember { mutableStateOf(checkUsageAccessGranted()) }
     var isAccessibilityGranted by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
     var isOverlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    var isCameraGranted by remember { mutableStateOf(checkCameraGranted()) }
     var isActivityGranted by remember { mutableStateOf(checkActivityGranted()) }
     var isNotificationsGranted by remember { mutableStateOf(checkNotificationsGranted()) }
     var isBatteryGranted by remember { mutableStateOf(checkBatteryOptGranted()) }
@@ -103,7 +99,6 @@ fun PermissionManagerScreen(
         isUsageGranted = checkUsageAccessGranted()
         isAccessibilityGranted = isAccessibilityServiceEnabled(context)
         isOverlayGranted = Settings.canDrawOverlays(context)
-        isCameraGranted = checkCameraGranted()
         isActivityGranted = checkActivityGranted()
         isNotificationsGranted = checkNotificationsGranted()
         isBatteryGranted = checkBatteryOptGranted()
@@ -129,7 +124,6 @@ fun PermissionManagerScreen(
         isUsageGranted,
         isAccessibilityGranted,
         isOverlayGranted,
-        isCameraGranted,
         isActivityGranted,
         isNotificationsGranted,
         isBatteryGranted
@@ -165,13 +159,13 @@ fun PermissionManagerScreen(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(
+                    ResponsiveText(
                         text = "Permission Manager",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
-                    Text(
+                    ResponsiveText(
                         text = "System permissions for friction blocking & AI challenges",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
@@ -208,13 +202,13 @@ fun PermissionManagerScreen(
                                 )
                             }
                             Column {
-                                Text(
+                                ResponsiveText(
                                     text = "Permission Health",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
                                 )
-                                Text(
+                                ResponsiveText(
                                     text = if (totalGranted == 7) "Optimal protection & AI verification" else "Action recommended for full protection",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary
@@ -227,7 +221,7 @@ fun PermissionManagerScreen(
                             color = if (totalGranted == 7) FrictionPrimary.copy(alpha = 0.2f) else FrictionAccent.copy(alpha = 0.2f),
                             border = BorderStroke(1.dp, if (totalGranted == 7) FrictionPrimary.copy(alpha = 0.4f) else FrictionAccent.copy(alpha = 0.4f))
                         ) {
-                            Text(
+                            ResponsiveText(
                                 text = "$totalGranted / 7 Active",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -249,7 +243,7 @@ fun PermissionManagerScreen(
                 }
             }
 
-            Text(
+            ResponsiveText(
                 text = "System Permissions Breakdown",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
@@ -316,18 +310,6 @@ fun PermissionManagerScreen(
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         })
                     }
-                }
-            )
-
-            // 4. Camera Permission
-            PermissionCard(
-                icon = Icons.Default.Videocam,
-                title = "Camera Access",
-                category = "AI Pose Verification",
-                purpose = "Camera is used to verify push-up challenges locally on your device using MediaPipe Pose landmarker.",
-                isGranted = isCameraGranted,
-                onAction = {
-                    singlePermLauncher.launch(Manifest.permission.CAMERA)
                 }
             )
 
@@ -443,13 +425,13 @@ private fun PermissionCard(
                     }
 
                     Column {
-                        Text(
+                        ResponsiveText(
                             text = title,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        Text(
+                        ResponsiveText(
                             text = category,
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
@@ -462,7 +444,7 @@ private fun PermissionCard(
                     color = if (isGranted) FrictionPrimary.copy(alpha = 0.15f) else FrictionError.copy(alpha = 0.15f),
                     border = BorderStroke(1.dp, if (isGranted) FrictionPrimary.copy(alpha = 0.3f) else FrictionError.copy(alpha = 0.3f))
                 ) {
-                    Text(
+                    ResponsiveText(
                         text = if (isGranted) "Granted ✓" else "Denied ✕",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -472,7 +454,7 @@ private fun PermissionCard(
                 }
             }
 
-            Text(
+            ResponsiveText(
                 text = purpose,
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
@@ -491,7 +473,7 @@ private fun PermissionCard(
                     onClick = onAction,
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("System Settings", color = TextMuted, fontSize = 12.sp)
+                    ResponsiveText("System Settings", color = TextMuted, fontSize = 12.sp)
                 }
             }
         }

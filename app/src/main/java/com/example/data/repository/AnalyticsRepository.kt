@@ -13,7 +13,8 @@ class AnalyticsRepository(private val firestoreService: FirestoreService) {
 
     suspend fun saveDailyAnalytics(userUid: String, screenTimeMs: Long, topApps: List<AppUsageInfo>) {
         val targetUid = SafeFirebase.currentUser?.uid ?: userUid
-        if (targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
+        val db = firestoreService.db
+        if (db == null || targetUid.isEmpty() || targetUid.startsWith("offline_") || targetUid.startsWith("guest_")) return
 
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val docId = "${targetUid}_$dateStr"
@@ -35,7 +36,7 @@ class AnalyticsRepository(private val firestoreService: FirestoreService) {
                 "timestamp" to System.currentTimeMillis()
             )
 
-            firestoreService.db.collection("analytics").document(docId)
+            db.collection("analytics").document(docId)
                 .set(analyticsMap, SetOptions.merge()).await()
 
             FirebaseDebugLogger.logWriteSuccess("analytics", docId)

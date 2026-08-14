@@ -1,0 +1,83 @@
+        // Dashboard Premium Card (Part 3)
+        if (!user.premium) {
+            com.example.core.widgets.GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenPaywall() },
+                shape = RoundedCornerShape(22.dp),
+                backgroundColor = FrictionPrimary.copy(alpha = 0.12f),
+                borderColor = FrictionPrimary.copy(alpha = 0.35f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Early Bird Launch Offer",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "3-Day Free Trial",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = FrictionAccent
+                            )
+                        }
+                        
+                        Image(
+                            painter = painterResource(id = R.drawable.mascot_premium),
+                            contentDescription = "Premium Mascot",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(54.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = FrictionAccent.copy(alpha = 0.15f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = FrictionAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "NO CREDIT CARD OR PAYMENT DETAILS REQUIRED",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = FrictionAccent,
+                                fontSize = 10.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    
+                    com.example.core.widgets.FrictionButton(
+                        text = "Claim Launch Pricing →",
+                        onClick = onOpenPaywall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }

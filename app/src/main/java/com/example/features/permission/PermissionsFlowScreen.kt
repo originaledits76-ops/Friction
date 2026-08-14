@@ -1,11 +1,14 @@
 package com.example.features.permission
 
+import com.example.core.widgets.ResponsiveText
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -46,7 +48,7 @@ fun PermissionsFlowScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var step by remember { mutableStateOf(1) }
+    var step by remember { mutableIntStateOf(1) }
     
     fun checkNotificationsGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -54,10 +56,6 @@ fun PermissionsFlowScreen(
         } else {
             NotificationManagerCompat.from(context).areNotificationsEnabled()
         }
-    }
-
-    fun checkCameraGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
     fun checkActivityGranted(): Boolean {
@@ -68,21 +66,27 @@ fun PermissionsFlowScreen(
         }
     }
 
+    fun checkBatteryOptimizationIgnored(): Boolean {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
     val isUsageGranted by homeViewModel.isPermissionGranted.collectAsState()
     var isAccessibilityGranted by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+    var isBatteryIgnored by remember { mutableStateOf(checkBatteryOptimizationIgnored()) }
     var isOverlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var isNotificationsGranted by remember { mutableStateOf(checkNotificationsGranted()) }
-    var isChallengesGranted by remember { mutableStateOf(checkCameraGranted() && checkActivityGranted()) }
+    var isActivityGranted by remember { mutableStateOf(checkActivityGranted()) }
 
     fun refreshAllPermissions() {
         homeViewModel.checkPermission()
         isAccessibilityGranted = isAccessibilityServiceEnabled(context)
+        isBatteryIgnored = checkBatteryOptimizationIgnored()
         isOverlayGranted = Settings.canDrawOverlays(context)
         isNotificationsGranted = checkNotificationsGranted()
-        isChallengesGranted = checkCameraGranted() && checkActivityGranted()
+        isActivityGranted = checkActivityGranted()
     }
 
-    // Refresh permission statuses when app comes back to foreground
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -97,17 +101,11 @@ fun PermissionsFlowScreen(
 
     var showSettingsFallback by remember { mutableStateOf(false) }
 
-    // Multi-permission launcher for Camera & Activity Recognition (Step 5)
-    val challengePermissionsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        isChallengesGranted = checkCameraGranted() && checkActivityGranted()
-        if (isChallengesGranted) {
-            onComplete()
-        } else {
-            // Even if partially granted, let them proceed
-            onComplete()
-        }
+    val requestActivityLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        isActivityGranted = isGranted
+        onComplete()
     }
 
     val requestNotificationLauncher = rememberLauncherForActivityResult(
@@ -116,7 +114,7 @@ fun PermissionsFlowScreen(
         isNotificationsGranted = isGranted
         if (isGranted) {
             showSettingsFallback = false
-            step = 5
+            step = 6
         } else {
             showSettingsFallback = true
         }
@@ -148,17 +146,39 @@ fun PermissionsFlowScreen(
         }
     }
 
-    LaunchedEffect(isUsageGranted, isAccessibilityGranted, isOverlayGranted, isNotificationsGranted, isChallengesGranted, step) {
-        if (isUsageGranted && isAccessibilityGranted && isOverlayGranted && isNotificationsGranted && isChallengesGranted) {
+    @SuppressLint("BatteryLife")
+    fun requestBatteryOptimization() {
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (err: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    LaunchedEffect(isUsageGranted, isAccessibilityGranted, isBatteryIgnored, isOverlayGranted, isNotificationsGranted, isActivityGranted, step) {
+        if (isUsageGranted && isAccessibilityGranted && isBatteryIgnored && isOverlayGranted && isNotificationsGranted && isActivityGranted) {
             onComplete()
         } else if (isUsageGranted && step == 1) {
             step = 2
         } else if (isAccessibilityGranted && step == 2) {
             step = 3
-        } else if (isOverlayGranted && step == 3) {
+        } else if (isBatteryIgnored && step == 3) {
             step = 4
-        } else if (isNotificationsGranted && step == 4) {
+        } else if (isOverlayGranted && step == 4) {
             step = 5
+        } else if (isNotificationsGranted && step == 5) {
+            step = 6
         }
     }
 
@@ -176,7 +196,6 @@ fun PermissionsFlowScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Step counter
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -184,19 +203,19 @@ fun PermissionsFlowScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Permission $step of 5",
+                ResponsiveText(
+                    text = "Permission $step of 6",
                     style = MaterialTheme.typography.labelLarge,
                     color = FrictionPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = { onComplete() }) {
-                    Text("Skip for now", color = TextMuted)
+                    ResponsiveText(text = "Skip for now", color = TextMuted)
                 }
             }
 
             LinearProgressIndicator(
-                progress = { step / 5f },
+                progress = { step / 6f },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
@@ -215,7 +234,7 @@ fun PermissionsFlowScreen(
                         whyText = "Friction needs to know when you open distracting apps and how long you use them.",
                         howText = "Tap below, find Friction, and toggle 'Permit usage access'.",
                         benefitText = "Automatically scans your app usage to build highly customized block rules.",
-                        privacyText = "Stays locally on your device. We never sync your app usage logs to any external server.",
+                        privacyText = "Your usage data stays private and is never shared or sold.",
                         buttonText = "Grant Usage Access",
                         onClick = {
                             try {
@@ -262,6 +281,24 @@ fun PermissionsFlowScreen(
                 }
                 3 -> {
                     PermissionStep(
+                        icon = Icons.Default.BatteryChargingFull,
+                        title = "Background Usage",
+                        whyText = "Friction needs to run reliably in the background to accurately track screen time and enforce app blocks.",
+                        howText = "Tap below and allow Friction to ignore battery optimizations or run in the background.",
+                        benefitText = "Ensures app blockers don't randomly fail when your device goes to sleep.",
+                        privacyText = "Required solely for process stability. Does not affect tracking privacy.",
+                        buttonText = "Allow Background Usage",
+                        onClick = {
+                            requestBatteryOptimization()
+                        },
+                        onCheck = {
+                            isBatteryIgnored = checkBatteryOptimizationIgnored()
+                            step = 4
+                        }
+                    )
+                }
+                4 -> {
+                    PermissionStep(
                         icon = Icons.Default.Layers,
                         title = "Display Over Other Apps",
                         whyText = "Necessary for overlaying our mindful challenge screen directly on top of blocked apps.",
@@ -291,11 +328,11 @@ fun PermissionsFlowScreen(
                         },
                         onCheck = {
                             isOverlayGranted = Settings.canDrawOverlays(context)
-                            step = 4
+                            step = 5
                         }
                     )
                 }
-                4 -> {
+                5 -> {
                     PermissionStep(
                         icon = Icons.Default.NotificationsActive,
                         title = "Notifications",
@@ -310,7 +347,7 @@ fun PermissionsFlowScreen(
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
                                     isNotificationsGranted = true
-                                    step = 5
+                                    step = 6
                                 } else {
                                     requestNotificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
@@ -323,29 +360,29 @@ fun PermissionsFlowScreen(
                         },
                         onCheck = {
                             isNotificationsGranted = checkNotificationsGranted()
-                            step = 5
+                            step = 6
                         }
                     )
                 }
-                5 -> {
+                6 -> {
                     PermissionStep(
-                        icon = Icons.Default.FitnessCenter,
-                        title = "Advanced Challenges",
-                        whyText = "Camera is required for the 'Find the Object' visual challenge. Physical Activity is required for walking step detector tasks.",
-                        howText = "Tap below to grant Camera and Physical Activity permissions.",
-                        benefitText = "Unlocks healthy, active mindfulness-breaking challenges.",
-                        privacyText = "Visual objects are analyzed on-device only; camera feeds or physical logs are never recorded.",
-                        buttonText = "Grant Challenge Permissions",
+                        icon = Icons.Default.DirectionsWalk,
+                        title = "Physical Activity",
+                        whyText = "Physical Activity is required for walking step detector tasks.",
+                        howText = "Tap below to grant Physical Activity permission.",
+                        benefitText = "Unlocks walking challenges to build healthy habits.",
+                        privacyText = "Step data is processed locally to complete challenges.",
+                        buttonText = "Grant Activity Permission",
                         onClick = {
-                            val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACTIVITY_RECOGNITION)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                requestActivityLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                             } else {
-                                arrayOf(Manifest.permission.CAMERA)
+                                isActivityGranted = true
+                                onComplete()
                             }
-                            challengePermissionsLauncher.launch(perms)
                         },
                         onCheck = {
-                            isChallengesGranted = checkCameraGranted() && checkActivityGranted()
+                            isActivityGranted = checkActivityGranted()
                             onComplete()
                         }
                     )
@@ -381,7 +418,7 @@ fun PermissionStep(
             Icon(imageVector = icon, contentDescription = null, tint = FrictionPrimary, modifier = Modifier.size(40.dp))
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text(text = title, style = MaterialTheme.typography.headlineMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
+        ResponsiveText(text = title, style = MaterialTheme.typography.headlineMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         
         Card(
@@ -391,24 +428,24 @@ fun PermissionStep(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Why we need this", style = MaterialTheme.typography.labelMedium, color = FrictionPrimary, fontWeight = FontWeight.Bold)
+                ResponsiveText(text = "Why we need this", style = MaterialTheme.typography.labelMedium, color = FrictionPrimary, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(whyText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                ResponsiveText(text = whyText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("How it improves your workflow", style = MaterialTheme.typography.labelMedium, color = FrictionAccent, fontWeight = FontWeight.Bold)
+                ResponsiveText(text = "How it improves your workflow", style = MaterialTheme.typography.labelMedium, color = FrictionAccent, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(benefitText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                ResponsiveText(text = benefitText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("How your data is handled", style = MaterialTheme.typography.labelMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
+                ResponsiveText(text = "How your data is handled", style = MaterialTheme.typography.labelMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(privacyText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                ResponsiveText(text = privacyText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("How to enable", style = MaterialTheme.typography.labelMedium, color = TextMuted, fontWeight = FontWeight.Bold)
+                ResponsiveText(text = "How to enable", style = MaterialTheme.typography.labelMedium, color = TextMuted, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(howText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                ResponsiveText(text = howText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
         }
         
@@ -432,14 +469,14 @@ fun PermissionStep(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
+                        ResponsiveText(
                             text = "Permission Blocked",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = FrictionError
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
+                        ResponsiveText(
                             text = "System notifications have been blocked. Please click 'Open App Notification Settings' to enable them manually, then tap Continue.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
@@ -460,13 +497,13 @@ fun PermissionStep(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
             ) {
-                Text(secondaryButtonText, fontWeight = FontWeight.Medium)
+                ResponsiveText(text = secondaryButtonText, fontWeight = FontWeight.Medium)
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(onClick = onCheck) {
-            Text("I've enabled it / Continue", color = FrictionPrimary, fontWeight = FontWeight.SemiBold)
+            ResponsiveText(text = "I've enabled it / Continue", color = FrictionPrimary, fontWeight = FontWeight.SemiBold)
         }
     }
 }

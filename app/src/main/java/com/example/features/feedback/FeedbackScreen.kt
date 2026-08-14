@@ -1,5 +1,6 @@
 package com.example.features.feedback
 
+import com.example.core.widgets.ResponsiveText
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -59,7 +60,6 @@ fun FeedbackScreen(
     // Bug report form state
     var bugSubject by remember { mutableStateOf("") }
     var bugDescription by remember { mutableStateOf("") }
-    var bugScreenshotAttached by remember { mutableStateOf(false) }
 
     // Feature request form state
     var featureTitle by remember { mutableStateOf("") }
@@ -113,13 +113,13 @@ fun FeedbackScreen(
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
+                    ResponsiveText(
                         text = "Feedback & Support",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
-                    Text(
+                    ResponsiveText(
                         text = "Help us build a better Friction",
                         style = MaterialTheme.typography.labelMedium,
                         color = FrictionSecondaryText
@@ -167,48 +167,6 @@ fun FeedbackScreen(
                         minLines = 3
                     )
 
-                    // Optional Screenshot Placeholder Box
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = DarkBackground.copy(alpha = 0.6f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (bugScreenshotAttached) FrictionPrimary else Color.White.copy(alpha = 0.08f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                bugScreenshotAttached = !bugScreenshotAttached
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (bugScreenshotAttached) Icons.Default.CheckCircle else Icons.Default.AddPhotoAlternate,
-                                contentDescription = "Attach Screenshot",
-                                tint = if (bugScreenshotAttached) FrictionPrimary else TextMuted
-                            )
-                            Column {
-                                Text(
-                                    text = if (bugScreenshotAttached) "Screenshot Attached (Sample.png)" else "Attach Screenshot (Optional)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (bugScreenshotAttached) FrictionPrimary else TextSecondary
-                                )
-                                Text(
-                                    text = "Tap to attach image log placeholder",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextMuted
-                                )
-                            }
-                        }
-                    }
-
                     FrictionButton(
                         text = "Submit Bug Report",
                         onClick = {
@@ -216,26 +174,23 @@ fun FeedbackScreen(
                                 Toast.makeText(context, "Please enter a subject and description", Toast.LENGTH_SHORT).show()
                                 return@FrictionButton
                             }
-                            isSubmitting = true
-                            coroutineScope.launch {
-                                val submission = FeedbackSubmission(
-                                    userId = user.uid.ifEmpty { "anonymous_user" },
-                                    authType = if (user.guest) "Guest" else "Google",
-                                    category = "bug_report",
-                                    subjectOrTitle = bugSubject,
-                                    description = bugDescription,
-                                    extraDetails = if (bugScreenshotAttached) "Screenshot attached" else "No screenshot"
-                                )
-                                feedbackRepository.submitFeedback(submission)
-                                isSubmitting = false
-                                successMessage = "Thank you! Your bug report has been submitted to the Friction engineering team."
+                            val submission = FeedbackSubmission(
+                                userId = user.uid.ifEmpty { "anonymous_user" },
+                                authType = if (user.guest) "Guest" else "Google",
+                                category = "bug_report",
+                                subjectOrTitle = bugSubject,
+                                description = bugDescription,
+                                extraDetails = "Submitted via mobile app"
+                            )
+                            val success = feedbackRepository.sendEmailFeedback(context, submission)
+                            if (success) {
+                                successMessage = "Opening your email app to send the bug report to alokchoubey892@gmail.com."
                                 showSuccessDialog = true
                                 bugSubject = ""
                                 bugDescription = ""
-                                bugScreenshotAttached = false
                             }
                         },
-                        isLoading = isSubmitting,
+                        isLoading = false,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -287,26 +242,24 @@ fun FeedbackScreen(
                                 Toast.makeText(context, "Please enter a feature title and description", Toast.LENGTH_SHORT).show()
                                 return@FrictionButton
                             }
-                            isSubmitting = true
-                            coroutineScope.launch {
-                                val submission = FeedbackSubmission(
-                                    userId = user.uid.ifEmpty { "anonymous_user" },
-                                    authType = if (user.guest) "Guest" else "Google",
-                                    category = "feature_request",
-                                    subjectOrTitle = featureTitle,
-                                    description = featureDescription,
-                                    extraDetails = featureWhyHelpful
-                                )
-                                feedbackRepository.submitFeedback(submission)
-                                isSubmitting = false
-                                successMessage = "Awesome! Your feature idea has been logged. We review all requests weekly!"
+                            val submission = FeedbackSubmission(
+                                userId = user.uid.ifEmpty { "anonymous_user" },
+                                authType = if (user.guest) "Guest" else "Google",
+                                category = "feature_request",
+                                subjectOrTitle = featureTitle,
+                                description = featureDescription,
+                                extraDetails = featureWhyHelpful
+                            )
+                            val success = feedbackRepository.sendEmailFeedback(context, submission)
+                            if (success) {
+                                successMessage = "Opening your email app to send the feature request to alokchoubey892@gmail.com."
                                 showSuccessDialog = true
                                 featureTitle = ""
                                 featureDescription = ""
                                 featureWhyHelpful = ""
                             }
                         },
-                        isLoading = isSubmitting,
+                        isLoading = false,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -328,7 +281,7 @@ fun FeedbackScreen(
                 ) {
                     // Star Rating Picker
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        Text(
+                        ResponsiveText(
                             text = "How are you enjoying Friction?",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
@@ -377,26 +330,24 @@ fun FeedbackScreen(
                                 Toast.makeText(context, "Please share your thoughts before submitting", Toast.LENGTH_SHORT).show()
                                 return@FrictionButton
                             }
-                            isSubmitting = true
-                            coroutineScope.launch {
-                                val submission = FeedbackSubmission(
-                                    userId = user.uid.ifEmpty { "anonymous_user" },
-                                    authType = if (user.guest) "Guest" else "Google",
-                                    category = "feedback",
-                                    subjectOrTitle = "$starRating Star Rating",
-                                    description = feedbackText,
-                                    starRating = starRating,
-                                    extraDetails = feedbackSuggestion
-                                )
-                                feedbackRepository.submitFeedback(submission)
-                                isSubmitting = false
-                                successMessage = "Thank you for the feedback! Flick appreciates your support in making Friction better."
+                            val submission = FeedbackSubmission(
+                                userId = user.uid.ifEmpty { "anonymous_user" },
+                                authType = if (user.guest) "Guest" else "Google",
+                                category = "feedback",
+                                subjectOrTitle = "$starRating Star Rating",
+                                description = feedbackText,
+                                starRating = starRating,
+                                extraDetails = feedbackSuggestion
+                            )
+                            val success = feedbackRepository.sendEmailFeedback(context, submission)
+                            if (success) {
+                                successMessage = "Opening your email app to send your feedback to alokchoubey892@gmail.com."
                                 showSuccessDialog = true
                                 feedbackText = ""
                                 feedbackSuggestion = ""
                             }
                         },
-                        isLoading = isSubmitting,
+                        isLoading = false,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -421,7 +372,7 @@ fun FeedbackScreen(
                             modifier = Modifier.size(90.dp)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
+                        ResponsiveText(
                             text = "Submission Received!",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
@@ -431,7 +382,7 @@ fun FeedbackScreen(
                     }
                 },
                 text = {
-                    Text(
+                    ResponsiveText(
                         text = successMessage,
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
@@ -505,13 +456,13 @@ fun ExpandableGlassCard(
                     }
 
                     Column {
-                        Text(
+                        ResponsiveText(
                             text = title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        Text(
+                        ResponsiveText(
                             text = subtitle,
                             style = MaterialTheme.typography.labelMedium,
                             color = FrictionSecondaryText
@@ -548,7 +499,7 @@ fun GlassTextField(
     minLines: Int = 1
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
+        ResponsiveText(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
@@ -560,7 +511,7 @@ fun GlassTextField(
             value = value,
             onValueChange = onValueChange,
             placeholder = {
-                Text(
+                ResponsiveText(
                     text = placeholder,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted

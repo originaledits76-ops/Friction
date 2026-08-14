@@ -1,34 +1,9 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="200dp"
-    android:height="200dp"
-    android:viewportWidth="200"
-    android:viewportHeight="200">
-
-    <!-- Background Radar Circles -->
-    <path android:pathData="M 25,100 a 75,75 0 1,0 150,0 a 75,75 0 1,0 -150,0" android:fillColor="#1500E5FF" android:strokeWidth="1.5" android:strokeColor="#3000E5FF" />
-    <path android:pathData="M 50,100 a 50,50 0 1,0 100,0 a 50,50 0 1,0 -100,0" android:fillColor="#00000000" android:strokeWidth="1.5" android:strokeColor="#3000E5FF" />
-
-    <!-- Bar Chart Elements -->
-    <path android:pathData="M55,145 L55,120" android:strokeWidth="12" android:strokeColor="#FF0284C7" android:strokeLineCap="round" />
-    <path android:pathData="M75,145 L75,95" android:strokeWidth="12" android:strokeColor="#FF38BDF8" android:strokeLineCap="round" />
-    <path android:pathData="M95,145 L95,75" android:strokeWidth="12" android:strokeColor="#FF00E5FF" android:strokeLineCap="round" />
-    <path android:pathData="M115,145 L115,105" android:strokeWidth="12" android:strokeColor="#FF7C4DFF" android:strokeLineCap="round" />
-    <path android:pathData="M135,145 L135,60" android:strokeWidth="12" android:strokeColor="#FFA855F7" android:strokeLineCap="round" />
-
-    <!-- Cute Inspector Mascot floating on top right -->
-    <path
-        android:pathData="M125,50 C125,40 133,32 143,32 C153,32 161,40 161,50 L161,80 C161,90 153,98 143,98 C133,98 125,90 125,80 Z"
-        android:fillColor="#FF0F172A"
-        android:strokeWidth="2"
-        android:strokeColor="#FF38BDF8" />
-
-    <!-- Visor -->
-    <path android:pathData="M130,42 L156,42 C158,42 160,44 160,46 L160,56 C160,58 158,60 156,60 L130,60 C128,60 126,58 126,56 L126,46 C126,44 128,42 130,42 Z" android:fillColor="#FF0284C7" />
-    <path android:pathData="M 134,51 a 3,3 0 1,0 6,0 a 3,3 0 1,0 -6,0" android:fillColor="#FF00E5FF" />
-    <path android:pathData="M 146,51 a 3,3 0 1,0 6,0 a 3,3 0 1,0 -6,0" android:fillColor="#FF00E5FF" />
-
-    <!-- Magnifying Glass -->
-    <path android:pathData="M110,90 A20,20 0 1,0 150,90 A20,20 0 1,0 110,90 Z" android:fillColor="#1500E5FF" android:strokeWidth="3" android:strokeColor="#FF00E5FF" />
-    <path android:pathData="M116,104 L100,120" android:strokeWidth="5" android:strokeColor="#FF38BDF8" android:strokeLineCap="round" />
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8zM13,7h-2v5.41l4.71,4.71 1.41,-1.41L13,11.58V7z"/>
 </vector>

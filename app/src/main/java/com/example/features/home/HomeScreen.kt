@@ -1,5 +1,6 @@
 package com.example.features.home
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.User
 import com.example.ui.theme.*
@@ -40,6 +42,8 @@ fun HomeScreen(
     val activity = context as? android.app.Activity
     var selectedTab by remember { mutableStateOf("dashboard") }
     var showPaywall by remember { mutableStateOf(false) }
+    var paywallInitialStep by remember { mutableIntStateOf(1) }
+    var showRewardedAdDialog by remember { mutableStateOf(false) }
     val isPermissionGranted by homeViewModel.isPermissionGranted.collectAsState()
 
     // Trigger check on layout loading
@@ -48,9 +52,59 @@ fun HomeScreen(
         homeViewModel.loadBuddiesAndLeaderboard(user.uid)
     }
 
+    val isPremium = user.premium || (user.isTrialActive && !user.hasTrialExpired())
+    LaunchedEffect(isPremium) {
+        com.example.features.ads.AdManager.updateUserPremiumStatus(isPremium, context)
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, showPaywall) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                if (!showPaywall) {
+                    com.example.features.ads.AdManager.handleAppOpen(context, activity) {
+                        !showPaywall
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+
+    if (showRewardedAdDialog) {
+        AlertDialog(
+            onDismissRequest = { showRewardedAdDialog = false },
+            title = { ResponsiveText("Unlock AI Analysis", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = { ResponsiveText("Watch a short ad to unlock one AI analysis.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary) },
+            containerColor = DarkSurface,
+            confirmButton = {
+                Button(onClick = {
+                    showRewardedAdDialog = false
+                    activity?.let { act -> com.example.features.ads.AdManager.showRewardedAd(act, onRewardEarned = {
+                        homeViewModel.markRewardedAiConsumed()
+                        homeViewModel.generateAiCoachingForced(user)
+                    }, onDismissed = {}) }
+                }, colors = ButtonDefaults.buttonColors(containerColor = FrictionPrimary)) { 
+                    ResponsiveText("Watch Ad & Analyse", color = Color.Black, fontWeight = FontWeight.Bold) 
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRewardedAdDialog = false
+                    paywallInitialStep = 3
+                    showPaywall = true
+                }) { 
+                    ResponsiveText("Upgrade to Pro", color = TextMuted) 
+                }
+            }
+        )
+    }
     if (showPaywall) {
         PaywallScreen(
             user = user,
+            initialStep = paywallInitialStep,
             onLinkGoogle = { activity?.let { loginViewModel.linkGoogleAccount(it) } },
             onDismiss = { showPaywall = false },
             onPurchaseSuccess = { plan ->
@@ -69,15 +123,58 @@ fun HomeScreen(
     } else {
         // Collect flows reactively
         val todayScreenTimeMs by homeViewModel.todayScreenTimeMs.collectAsState()
+        val todayHourlyScreenTimeMs by homeViewModel.todayHourlyScreenTimeMs.collectAsState()
+        val dailyScreenTimeLimitMs by homeViewModel.dailyScreenTimeLimitMs.collectAsState()
+        val weeklyScreenTimeMs by homeViewModel.weeklyScreenTimeMs.collectAsState()
+        val monthlyScreenTimeMs by homeViewModel.monthlyScreenTimeMs.collectAsState()
+
         val topApps by homeViewModel.topApps.collectAsState()
+        val weeklyTopApps by homeViewModel.weeklyTopApps.collectAsState()
+        val monthlyTopApps by homeViewModel.monthlyTopApps.collectAsState()
+
         val detailedAnalytics by homeViewModel.detailedAnalytics.collectAsState()
+        val weeklyDetailedAnalytics by homeViewModel.weeklyDetailedAnalytics.collectAsState()
+        val monthlyDetailedAnalytics by homeViewModel.monthlyDetailedAnalytics.collectAsState()
+
+        val dailyHistory by homeViewModel.dailyHistory.collectAsState()
+        val weeklyHistory by homeViewModel.weeklyHistory.collectAsState()
+        val monthlyHistory by homeViewModel.monthlyHistory.collectAsState()
         val rules by homeViewModel.rules.collectAsState()
         val challenges by homeViewModel.challenges.collectAsState()
         val friends by homeViewModel.friends.collectAsState()
+        val browseFriendsList by homeViewModel.browseFriendsList.collectAsState()
+        val selectedBuddyDetails by homeViewModel.selectedBuddyDetails.collectAsState()
+        val isBuddyDetailsLoading by homeViewModel.isBuddyDetailsLoading.collectAsState()
         val leaderboardWeekly by homeViewModel.leaderboardWeekly.collectAsState()
         val leaderboardMonthly by homeViewModel.leaderboardMonthly.collectAsState()
         val aiCoachingText by homeViewModel.aiCoachingState.collectAsState()
         val isAiLoading by homeViewModel.isAiLoading.collectAsState()
+
+        var showTrialDialog by remember { mutableStateOf(false) }
+
+        if (showTrialDialog) {
+            AlertDialog(
+                onDismissRequest = { showTrialDialog = false },
+                title = { ResponsiveText("Free Trial Activated", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge) },
+                text = {
+                    ResponsiveText(
+                        "Your 3-day free trial has started. Restart Friction to access Pro features.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showTrialDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = FrictionPrimary)
+                    ) {
+                        ResponsiveText("Got it", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = DarkCardBg,
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary
+            )
+        }
 
         Scaffold(
             bottomBar = {
@@ -95,7 +192,7 @@ fun HomeScreen(
                                 contentDescription = "Dashboard"
                             )
                         },
-                        label = { Text("Dashboard") },
+                        label = { ResponsiveText("Dashboard", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = FrictionPrimary,
                             selectedTextColor = TextPrimary,
@@ -114,7 +211,7 @@ fun HomeScreen(
                                 contentDescription = "Analytics"
                             )
                         },
-                        label = { Text("Analytics") },
+                        label = { ResponsiveText("Analytics", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = FrictionPrimary,
                             selectedTextColor = TextPrimary,
@@ -133,7 +230,7 @@ fun HomeScreen(
                                 contentDescription = "Buddies"
                             )
                         },
-                        label = { Text("Buddies") },
+                        label = { ResponsiveText("Buddies", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = FrictionPrimary,
                             selectedTextColor = TextPrimary,
@@ -152,7 +249,7 @@ fun HomeScreen(
                                 contentDescription = "Settings"
                             )
                         },
-                        label = { Text("Settings") },
+                        label = { ResponsiveText("Settings", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = FrictionPrimary,
                             selectedTextColor = TextPrimary,
@@ -183,44 +280,95 @@ fun HomeScreen(
                             DashboardScreen(
                                 user = user,
                                 todayScreenTimeMs = todayScreenTimeMs,
-                                unlocksToday = if (todayScreenTimeMs > 0) (todayScreenTimeMs / 600000L).toInt().coerceAtLeast(1) else 0,
+                                todayHourlyScreenTimeMs = todayHourlyScreenTimeMs,
+                                dailyScreenTimeLimitMs = dailyScreenTimeLimitMs,
+                                unlocksToday = detailedAnalytics?.unlockCount ?: 0,
                                 onNavigateToTab = { selectedTab = it },
+                                onSetDailyLimit = { homeViewModel.setDailyScreenTimeLimit(it) },
                                 onLinkGoogleAccount = { activity?.let { loginViewModel.linkGoogleAccount(it) } },
-                                onStartFreeTrial = { homeViewModel.startFreeTrial(user) },
+                                homeViewModel = homeViewModel,
+                                onStartFreeTrial = {
+                                    homeViewModel.startFreeTrial(user) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Your 3-day free trial has started. Restart Friction to access Pro features.",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                        showTrialDialog = true
+                                    }
+                                },
                                 onMarkOfferSeen = { homeViewModel.markEarlyBirdOfferSeen(user) },
-                                onOpenPaywall = { showPaywall = true }
+                                onOpenPaywall = { paywallInitialStep = 1; showPaywall = true }
                             )
                         }
                         "analytics" -> {
                             AnalyticsScreen(
                                 user = user,
                                 todayScreenTimeMs = todayScreenTimeMs,
-                                dailyHistory = homeViewModel.dailyHistory,
-                                weeklyHistory = homeViewModel.weeklyHistory,
-                                monthlyHistory = homeViewModel.monthlyHistory,
+                                weeklyScreenTimeMs = weeklyScreenTimeMs,
+                                monthlyScreenTimeMs = monthlyScreenTimeMs,
+                                dailyHistory = dailyHistory,
+                                weeklyHistory = weeklyHistory,
+                                monthlyHistory = monthlyHistory,
                                 topApps = topApps,
+                                weeklyTopApps = weeklyTopApps,
+                                monthlyTopApps = monthlyTopApps,
                                 detailedAnalytics = detailedAnalytics,
+                                weeklyDetailedAnalytics = weeklyDetailedAnalytics,
+                                monthlyDetailedAnalytics = monthlyDetailedAnalytics,
                                 aiCoachingText = aiCoachingText,
                                 isAiLoading = isAiLoading,
-                                onGenerateAiCoaching = { homeViewModel.generateAiCoaching() },
+                                onGenerateAiCoaching = {
+                                    homeViewModel.generateAiCoaching(
+                                        user = user,
+                                        onPaywallRequired = {
+                                            paywallInitialStep = 3
+                                            showPaywall = true
+                                        },
+                                        onAdPromptRequired = {
+                                            showRewardedAdDialog = true
+                                        }
+                                    )
+                                },
                                 onSetLimit = { selectedTab = "settings" },
                                 onOpenEngine = { selectedTab = "settings" },
                                 onClassifyApps = { selectedTab = "dashboard" },
                                 onReviewGoal = { selectedTab = "settings" },
                                 onViewAnalytics = { selectedTab = "analytics" },
-                                onOpenPaywall = { showPaywall = true }
+                                onOpenPaywall = { paywallInitialStep = 3; showPaywall = true },
+                                onVerifyEntitlement = { cb -> user?.let { homeViewModel.verifyPremiumEntitlement(it, cb) } }
                             )
                         }
                         "friends" -> {
                             FriendsScreen(
                                 user = user,
                                 friends = friends,
+                                browseFriendsList = browseFriendsList,
                                 leaderboardWeekly = leaderboardWeekly,
                                 leaderboardMonthly = leaderboardMonthly,
-                                onSendRequest = { homeViewModel.sendFriendRequest(user.uid, it) },
-                                onAcceptRequest = { homeViewModel.acceptFriendRequest(user.uid, it) },
-                                onRejectRequest = { homeViewModel.rejectFriendRequest(user.uid, it) },
-                                onOpenPaywall = { showPaywall = true }
+                                selectedBuddyDetails = selectedBuddyDetails,
+                                isBuddyDetailsLoading = isBuddyDetailsLoading,
+                                onLoadBrowseFriends = { user?.let { homeViewModel.loadBrowseFriends(it.uid) } },
+                                onSendRequest = { user?.let { u -> homeViewModel.sendFriendRequest(u.uid, it) } },
+                                onSendRequestToUid = { targetUid -> user?.let { u -> homeViewModel.sendFriendRequestToUid(u.uid, targetUid) } },
+                                onAcceptRequest = { friendUid ->
+                                    user?.let { u ->
+                                        val activeFriendsCount = friends.count { f -> f.status == "FRIEND" }
+                                        val isPremium = u.premium || (u.isTrialActive && !u.hasTrialExpired())
+                                        homeViewModel.acceptFriendRequest(
+                                            userUid = u.uid,
+                                            friendUid = friendUid,
+                                            activeFriendsCount = activeFriendsCount,
+                                            isPremium = isPremium,
+                                            onLimitReached = { paywallInitialStep = 3; showPaywall = true }
+                                        )
+                                    }
+                                },
+                                onRejectRequest = { friendUid -> user?.let { u -> homeViewModel.rejectFriendRequest(u.uid, friendUid) } },
+                                onSelectBuddy = { buddyUid -> homeViewModel.loadBuddyDetails(buddyUid) },
+                                onDismissBuddyDetails = { homeViewModel.clearBuddyDetails() },
+                                onOpenPaywall = { paywallInitialStep = 3; showPaywall = true },
+                                onVerifyEntitlement = { cb -> user?.let { homeViewModel.verifyPremiumEntitlement(it, cb) } }
                             )
                         }
                         "settings" -> {
@@ -233,7 +381,8 @@ fun HomeScreen(
                                 onDeleteRule = { homeViewModel.deleteRule(it) },
                                 onSignOut = { loginViewModel.logout() },
                                 homeViewModel = homeViewModel,
-                                onOpenPaywall = { showPaywall = true },
+                                onOpenPaywall = { paywallInitialStep = 3; showPaywall = true },
+
                                 onOpenFeedback = { selectedTab = "feedback" },
                                 onOpenPermissions = { selectedTab = "permissions" }
                             )
@@ -256,6 +405,14 @@ fun HomeScreen(
                             com.example.features.permission.PermissionManagerScreen(
                                 homeViewModel = homeViewModel,
                                 onBack = { selectedTab = "dashboard" }
+                            )
+                        }
+                        "xp" -> {
+                            com.example.features.xp.XpManagementScreen(
+                                user = user,
+                                homeViewModel = homeViewModel,
+                                onBack = { selectedTab = "dashboard" },
+                                onNavigateToTab = { selectedTab = it }
                             )
                         }
                     }

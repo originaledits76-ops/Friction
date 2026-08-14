@@ -1,5 +1,6 @@
 package com.example.features.splash
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -235,7 +236,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // 2. Product Name "Friction"
-            Text(
+            ResponsiveText(
                 text = "Friction",
                 style = MaterialTheme.typography.displayMedium,
                 color = FrictionText,
@@ -255,7 +256,7 @@ fun SplashScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
+                    ResponsiveText(
                         text = "Transform your life.",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,

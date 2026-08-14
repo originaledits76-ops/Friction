@@ -1,5 +1,6 @@
 package com.example.core.widgets
 
+import com.example.core.widgets.ResponsiveText
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -163,23 +164,39 @@ fun PremiumBackground(
                 )
             }
             BackgroundStyle.FRICTION_ENGINE -> {
-                // Soft concentric circles and floating abstract blobs
-                for (i in 1..5) {
-                    drawCircle(
-                        color = FrictionAccent.copy(alpha = 0.06f * (6 - i)),
-                        radius = w * 0.22f * i,
-                        center = Offset(w * 0.5f, h * 0.38f),
-                        style = Stroke(width = 2.dp.toPx())
+                // Smooth dark gradient background matching Friction palette
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            DarkBackground,
+                            Color(0xFF13171D),
+                            Color(0xFF0F1216)
+                        )
                     )
-                }
+                )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(FrictionPrimary.copy(alpha = 0.22f), Color.Transparent),
-                        center = Offset(w * 0.8f, h * 0.7f),
-                        radius = w * 0.6f
+                        colors = listOf(
+                            FrictionPrimary.copy(alpha = 0.12f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.5f, h * 0.15f),
+                        radius = w * 0.8f
                     ),
-                    radius = w * 0.6f,
-                    center = Offset(w * 0.8f, h * 0.7f)
+                    radius = w * 0.8f,
+                    center = Offset(w * 0.5f, h * 0.15f)
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            FrictionSecondary.copy(alpha = 0.08f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.8f, h * 0.85f),
+                        radius = w * 0.7f
+                    ),
+                    radius = w * 0.7f,
+                    center = Offset(w * 0.8f, h * 0.85f)
                 )
             }
             BackgroundStyle.LEADERBOARD -> {
@@ -402,7 +419,7 @@ fun FrictionButton(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text(
+                ResponsiveText(
                     text = text,
                     style = MaterialTheme.typography.labelLarge,
                     color = when {

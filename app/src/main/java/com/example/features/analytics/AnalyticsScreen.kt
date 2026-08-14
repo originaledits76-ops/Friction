@@ -1,5 +1,6 @@
 package com.example.features.analytics
 
+import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -44,11 +45,17 @@ import com.example.ui.theme.*
 fun AnalyticsScreen(
     user: com.example.data.model.User? = null,
     todayScreenTimeMs: Long,
+    weeklyScreenTimeMs: Long = 0L,
+    monthlyScreenTimeMs: Long = 0L,
     dailyHistory: Map<String, Long>,
     weeklyHistory: Map<String, Long>,
     monthlyHistory: Map<String, Long>,
     topApps: List<AppUsageInfo>,
+    weeklyTopApps: List<AppUsageInfo> = emptyList(),
+    monthlyTopApps: List<AppUsageInfo> = emptyList(),
     detailedAnalytics: ScreenTimeService.DetailedAnalytics? = null,
+    weeklyDetailedAnalytics: ScreenTimeService.DetailedAnalytics? = null,
+    monthlyDetailedAnalytics: ScreenTimeService.DetailedAnalytics? = null,
     aiCoachingText: String = "",
     isAiLoading: Boolean = false,
     onGenerateAiCoaching: () -> Unit = {},
@@ -58,16 +65,44 @@ fun AnalyticsScreen(
     onReviewGoal: () -> Unit = {},
     onViewAnalytics: () -> Unit = {},
     onOpenPaywall: () -> Unit = {},
+    onVerifyEntitlement: ((Boolean) -> Unit) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dims = com.example.ui.theme.LocalResponsiveDimensions.current
     var selectedTab by remember { mutableStateOf("DAILY") } // "DAILY", "WEEKLY", "MONTHLY"
     val scrollState = rememberScrollState()
 
+    var isPremiumVerified by remember(user?.premium, user?.isTrialActive) {
+        mutableStateOf(user?.premium == true || (user?.isTrialActive == true && !user.hasTrialExpired()))
+    }
+    LaunchedEffect(user?.uid) {
+        if (user != null) {
+            onVerifyEntitlement { isPremiumVerified = it }
+        }
+    }
+
     val currentHistory = when (selectedTab) {
         "DAILY" -> dailyHistory
         "WEEKLY" -> weeklyHistory
         else -> monthlyHistory
+    }
+
+    val currentScreenTimeMs = when (selectedTab) {
+        "DAILY" -> todayScreenTimeMs
+        "WEEKLY" -> weeklyScreenTimeMs
+        else -> monthlyScreenTimeMs
+    }
+
+    val currentDetailedAnalytics = when (selectedTab) {
+        "DAILY" -> detailedAnalytics
+        "WEEKLY" -> weeklyDetailedAnalytics ?: detailedAnalytics
+        else -> monthlyDetailedAnalytics ?: detailedAnalytics
+    }
+
+    val currentTopApps = when (selectedTab) {
+        "DAILY" -> topApps
+        "WEEKLY" -> weeklyTopApps.ifEmpty { topApps }
+        else -> monthlyTopApps.ifEmpty { topApps }
     }
 
     // Real-time calculated statistics
@@ -90,7 +125,7 @@ fun AnalyticsScreen(
         
         // 1. Title Row
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
+            ResponsiveText(
                 text = "Attention Analytics",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -99,7 +134,7 @@ fun AnalyticsScreen(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
+            ResponsiveText(
                 text = "Track your attention flow cycles",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
@@ -127,7 +162,7 @@ fun AnalyticsScreen(
                         modifier = Modifier.size(130.dp)
                     )
                     Spacer(modifier = Modifier.height(20.dp))
-                    Text(
+                    ResponsiveText(
                         text = "We're still learning your habits",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
@@ -137,7 +172,7 @@ fun AnalyticsScreen(
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(
+                    ResponsiveText(
                         text = "Use Friction for a little longer to unlock deeper insights. Not enough usage data yet, but we are ready to analyze your habits as you go.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
@@ -172,7 +207,7 @@ fun AnalyticsScreen(
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
+                        ResponsiveText(
                             text = when (tab) {
                                 "DAILY" -> "Daily"
                                 "WEEKLY" -> "Weekly"
@@ -229,14 +264,14 @@ fun AnalyticsScreen(
                     Spacer(modifier = Modifier.width(14.dp))
 
                     Column {
-                        Text(
+                        ResponsiveText(
                             text = if (todayScreenTimeMs <= yesterdayMs) "Excellent mindfulness!" else "Digital fatigue warning",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = comparisonColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
+                        ResponsiveText(
                             text = comparisonText,
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
@@ -245,7 +280,7 @@ fun AnalyticsScreen(
                 }
             }
 
-            // Today's Total Screen Time Number-Only Overview Card
+            // Total Screen Time Number-Only Overview Card
             com.example.core.widgets.GlassCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -258,16 +293,20 @@ fun AnalyticsScreen(
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "TODAY'S SCREEN TIME",
+                    ResponsiveText(
+                        text = when (selectedTab) {
+                            "DAILY" -> "TODAY'S SCREEN TIME"
+                            "WEEKLY" -> "THIS WEEK'S SCREEN TIME"
+                            else -> "THIS MONTH'S SCREEN TIME"
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = FrictionPrimary,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = formatTimeMs(todayScreenTimeMs),
+                    ResponsiveText(
+                        text = formatTimeMs(currentScreenTimeMs),
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = TextPrimary
@@ -275,7 +314,7 @@ fun AnalyticsScreen(
                 }
             }
 
-            if (user?.premium != true) {
+            if (!isPremiumVerified) {
                 // Free Plan Lock Banner for Graphs & AI Insights
                 com.example.core.widgets.GlassCard(
                     modifier = Modifier
@@ -307,7 +346,7 @@ fun AnalyticsScreen(
                             }
                         }
 
-                        Text(
+                        ResponsiveText(
                             text = "Interactive Analytics & AI Insights",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
@@ -315,7 +354,7 @@ fun AnalyticsScreen(
                             textAlign = TextAlign.Center
                         )
 
-                        Text(
+                        ResponsiveText(
                             text = "Free users can view today's total screen time numbers. Upgrade to Premium for interactive charts, trend breakdowns, and AI habit coaching!",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
@@ -378,7 +417,7 @@ fun AnalyticsScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text(
+                                ResponsiveText(
                                     text = "Personal Insights",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
@@ -386,7 +425,7 @@ fun AnalyticsScreen(
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
-                                Text(
+                                ResponsiveText(
                                     text = "Habit analysis & actionable recommendations",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextMuted,
@@ -421,7 +460,7 @@ fun AnalyticsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
+                            ResponsiveText(
                                 text = "Analyze your attention patterns using real measured usage data.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary,
@@ -441,7 +480,7 @@ fun AnalyticsScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Analyze My Habits", color = Color.Black, fontWeight = FontWeight.Bold)
+                                ResponsiveText("Analyze My Habits", color = Color.Black, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
@@ -462,7 +501,7 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
+                ResponsiveText(
                     text = "Usage Insights",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -477,7 +516,7 @@ fun AnalyticsScreen(
                 ) {
                     InsightCard(
                         title = "Unlocks",
-                        desc = "${detailedAnalytics?.unlockCount ?: 0}",
+                        desc = "${currentDetailedAnalytics?.unlockCount ?: 0}",
                         sub = "Screen Pickups",
                         icon = Icons.Default.PhonelinkLock,
                         iconColor = FrictionPrimary,
@@ -486,7 +525,7 @@ fun AnalyticsScreen(
 
                     InsightCard(
                         title = "App Launches",
-                        desc = "${detailedAnalytics?.totalLaunches ?: 0}",
+                        desc = "${currentDetailedAnalytics?.totalLaunches ?: 0}",
                         sub = "Intentions triggered",
                         icon = Icons.Default.Launch,
                         iconColor = FrictionPrimary,
@@ -500,7 +539,7 @@ fun AnalyticsScreen(
                 ) {
                     InsightCard(
                         title = "Avg Session",
-                        desc = formatTimeMs(detailedAnalytics?.averageSessionMs ?: 0L),
+                        desc = formatTimeMs(currentDetailedAnalytics?.averageSessionMs ?: 0L),
                         sub = "Typical attention span",
                         icon = Icons.Default.Timer,
                         iconColor = FrictionPrimary,
@@ -509,7 +548,7 @@ fun AnalyticsScreen(
 
                     InsightCard(
                         title = "Longest Session",
-                        desc = formatTimeMs(detailedAnalytics?.longestSessionMs ?: 0L),
+                        desc = formatTimeMs(currentDetailedAnalytics?.longestSessionMs ?: 0L),
                         sub = "Peak focus strain",
                         icon = Icons.Default.HistoryToggleOff,
                         iconColor = FrictionError,
@@ -523,29 +562,52 @@ fun AnalyticsScreen(
                 ) {
                     InsightCard(
                         title = "Peak Hours",
-                        desc = detailedAnalytics?.peakUsageHours ?: "No Data",
+                        desc = currentDetailedAnalytics?.peakUsageHours ?: "No Data",
                         sub = "Most active slot",
                         icon = Icons.Default.Schedule,
                         iconColor = FrictionError,
                         modifier = Modifier.weight(1f)
                     )
 
-                    val activeDays = currentHistory.values.count { it > 0 }
-                    val totalActiveTime = currentHistory.values.sum()
-                    val avgDaily = if (activeDays > 0) totalActiveTime / activeDays else todayScreenTimeMs
-                    InsightCard(
-                        title = "Daily Average",
-                        desc = formatTimeMs(avgDaily),
-                        sub = "Over active window",
-                        icon = Icons.Default.Equalizer,
-                        iconColor = FrictionPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
+                    if (selectedTab == "DAILY") {
+                        InsightCard(
+                            title = "Today's Focus",
+                            desc = formatTimeMs(todayScreenTimeMs),
+                            sub = "Active usage",
+                            icon = Icons.Default.Equalizer,
+                            iconColor = FrictionPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        val elapsedDays = when (selectedTab) {
+                            "WEEKLY" -> {
+                                val cal = java.util.Calendar.getInstance()
+                                val dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK)
+                                val firstDay = cal.firstDayOfWeek
+                                ((dayOfWeek - firstDay + 7) % 7 + 1).coerceAtLeast(1)
+                            }
+                            else -> {
+                                val cal = java.util.Calendar.getInstance()
+                                cal.get(java.util.Calendar.DAY_OF_MONTH).coerceAtLeast(1)
+                            }
+                        }
+                        val periodTotal = if (selectedTab == "WEEKLY") weeklyScreenTimeMs else monthlyScreenTimeMs
+                        val avgDaily = periodTotal / elapsedDays
+
+                        InsightCard(
+                            title = "Daily Average",
+                            desc = formatTimeMs(avgDaily),
+                            sub = "Over $elapsedDays days",
+                            icon = Icons.Default.Equalizer,
+                            iconColor = FrictionPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
             // 6. Hourly Distribution mini Bar Chart
-            detailedAnalytics?.hourlyDistribution?.let { hourlyDist ->
+            currentDetailedAnalytics?.hourlyDistribution?.let { hourlyDist ->
                 if (hourlyDist.values.any { it > 0 }) {
                     Card(
                         shape = RoundedCornerShape(18.dp),
@@ -556,13 +618,13 @@ fun AnalyticsScreen(
                             .padding(vertical = 4.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
+                            ResponsiveText(
                                 text = "Hourly Distribution of Launches",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(14.dp))
                             HourlySparkline(hourlyDist = hourlyDist)
@@ -572,18 +634,22 @@ fun AnalyticsScreen(
             }
 
             // 7. Staggered Top Apps list
-            if (topApps.isNotEmpty()) {
+            if (currentTopApps.isNotEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Most Used Apps Today",
+                    ResponsiveText(
+                        text = when (selectedTab) {
+                            "DAILY" -> "Most Used Apps Today"
+                            "WEEKLY" -> "Most Used Apps This Week"
+                            else -> "Most Used Apps This Month"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
 
                     Card(
@@ -596,12 +662,17 @@ fun AnalyticsScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            topApps.forEach { app ->
+                            currentTopApps.forEach { app ->
                                 val isDistracting = app.category == "Social Media" || app.category == "Games" || app.category == "Entertainment"
                                 AppUsageRow(app = app, isDistracting = isDistracting)
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
+                    if (user != null) {
+                        com.example.features.ads.FrictionBannerAd(user = user)
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
         }
@@ -650,9 +721,9 @@ fun HourlySparkline(hourlyDist: Map<Int, Int>) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("12 AM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
-        Text("12 PM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
-        Text("11 PM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
+        ResponsiveText("12 AM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
+        ResponsiveText("12 PM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
+        ResponsiveText("11 PM", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = TextMuted)
     }
 }
 
@@ -670,7 +741,7 @@ fun AppUsageRow(app: AppUsageInfo, isDistracting: Boolean) {
                 .background(if (isDistracting) FrictionError.copy(alpha = 0.12f) else FrictionPrimary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
+            ResponsiveText(
                 text = app.appName.take(1).uppercase(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -687,7 +758,7 @@ fun AppUsageRow(app: AppUsageInfo, isDistracting: Boolean) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
+                    ResponsiveText(
                         text = app.appName,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
@@ -703,7 +774,7 @@ fun AppUsageRow(app: AppUsageInfo, isDistracting: Boolean) {
                                 .background(FrictionError.copy(alpha = 0.15f))
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            Text(
+                            ResponsiveText(
                                 text = "Distracting",
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
@@ -712,7 +783,7 @@ fun AppUsageRow(app: AppUsageInfo, isDistracting: Boolean) {
                         }
                     }
                 }
-                Text(
+                ResponsiveText(
                     text = formatTimeMs(app.totalTimeInForegroundMs),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
@@ -762,7 +833,7 @@ fun InsightCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
+                ResponsiveText(
                     text = title.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 9.sp,
@@ -780,7 +851,7 @@ fun InsightCard(
             }
 
             Column {
-                Text(
+                ResponsiveText(
                     text = desc,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
@@ -789,7 +860,7 @@ fun InsightCard(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
+                ResponsiveText(
                     text = sub,
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 10.sp,
@@ -816,7 +887,7 @@ fun AnalyticsChart(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
+            ResponsiveText(
                 text = "Usage Breakdown",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -859,7 +930,7 @@ fun AnalyticsChart(
                                     )
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(
+                            ResponsiveText(
                                 text = label,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 9.sp,
