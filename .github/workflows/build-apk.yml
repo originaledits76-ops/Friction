@@ -22,7 +22,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # Ensures wrapper exists and HAS executable permissions
+      # 1. Ensure Gradle wrapper exists & has permissions
       - name: Bootstrap Gradle Wrapper
         run: |
           if [ ! -f ./gradlew ]; then
@@ -31,7 +31,7 @@ jobs:
           fi
           chmod +x gradlew
 
-      # Generates release key inside runner
+      # 2. Generate Release Keystore
       - name: Generate Release Keystore
         run: |
           keytool -genkey -v \
@@ -44,11 +44,15 @@ jobs:
             -keypass MySecurePassword123 \
             -dname "CN=Android App, OU=Dev, O=Company, L=City, S=State, C=US"
 
-      # Build APK using installed JDK directly instead of searching for external toolchain
+      # 3. Build APK with KSP fix flags
       - name: Build Release APK
-        run: ./gradlew assembleRelease -Dorg.gradle.java.installations.auto-detect=false --stacktrace
+        run: |
+          ./gradlew assembleRelease \
+            -Dksp.incremental=false \
+            --no-daemon \
+            --stacktrace
 
-      # Align & Sign APK
+      # 4. Align & Sign APK
       - name: Sign Release APK
         run: |
           UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
@@ -66,6 +70,7 @@ jobs:
             --out production-app-release.apk \
             app-release-aligned.apk
 
+      # 5. Upload APK
       - name: Upload Production APK
         uses: actions/upload-artifact@v4
         with:
