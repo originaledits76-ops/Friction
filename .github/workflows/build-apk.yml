@@ -23,6 +23,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       # Step 1: Ensure Gradle wrapper exists (Generates gradlew if missing from repo)
+            # Step 1: Ensure Gradle wrapper exists & grant execution permissions
       - name: Bootstrap Gradle Wrapper
         run: |
           if [ ! -f ./gradlew ]; then
@@ -30,6 +31,7 @@ jobs:
             gradle wrapper
           fi
           chmod +x gradlew
+
 
       # Step 2: Generate a Keystore on the fly inside the runner
       - name: Generate Release Keystore
