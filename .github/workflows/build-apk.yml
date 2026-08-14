@@ -22,7 +22,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # Ensures wrapper exists and HAS executable permissions (+x)
+      # Ensures wrapper exists and HAS executable permissions
       - name: Bootstrap Gradle Wrapper
         run: |
           if [ ! -f ./gradlew ]; then
@@ -44,11 +44,11 @@ jobs:
             -keypass MySecurePassword123 \
             -dname "CN=Android App, OU=Dev, O=Company, L=City, S=State, C=US"
 
-      # Build APK
+      # Build APK using installed JDK directly instead of searching for external toolchain
       - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease -Dorg.gradle.java.installations.auto-detect=false --stacktrace
 
-      # Align & Sign
+      # Align & Sign APK
       - name: Sign Release APK
         run: |
           UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
