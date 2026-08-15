@@ -35,9 +35,20 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair \
+            -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Build debug APK
-        env:
-          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
         run: |
           gradle --no-daemon --stacktrace assembleDebug
 
@@ -45,7 +56,10 @@ jobs:
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
-          test -f "$APK"
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: Debug APK was not generated."
+            exit 1
+          fi
 
           echo "APK generated successfully:"
           ls -lh "$APK"
@@ -57,3 +71,8 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f debug.keystore
