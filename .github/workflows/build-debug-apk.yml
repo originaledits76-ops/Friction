@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK components
+      - name: Install Android SDK
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-36"
@@ -36,6 +36,8 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Build debug APK
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
         run: |
           gradle --no-daemon --stacktrace assembleDebug
 
@@ -43,12 +45,9 @@ jobs:
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: Debug APK was not generated."
-            exit 1
-          fi
+          test -f "$APK"
 
-          echo "Debug APK successfully generated:"
+          echo "APK generated successfully:"
           ls -lh "$APK"
 
       - name: Upload debug APK
