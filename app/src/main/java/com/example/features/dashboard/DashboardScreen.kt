@@ -102,23 +102,35 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f, fill = false)) {
-                    ResponsiveText(
-                        text = "Hello, ${user?.displayName?.ifBlank { "Mindful User" } ?: "Mindful User"}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.mascot_dashboard),
+                        contentDescription = "Mascot",
+                        modifier = Modifier.size(48.dp),
+                        contentScale = ContentScale.Fit
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    ResponsiveText(
-                        text = "Track & master your digital balance",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column {
+                        ResponsiveText(
+                            text = "Hello, ${user?.displayName?.ifBlank { "Mindful User" } ?: "Mindful User"}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        ResponsiveText(
+                            text = "Track & master your digital balance",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
