@@ -31,6 +31,9 @@ import com.example.core.widgets.BackgroundStyle
 import com.example.data.model.User
 import com.example.ui.theme.*
 
+import com.example.data.repository.CouponResult
+import kotlinx.coroutines.launch
+
 enum class PlanType {
     MONTHLY, YEARLY, LIFETIME
 }
@@ -43,6 +46,7 @@ fun PaywallScreen(
     onLinkGoogle: () -> Unit = {},
     onDismiss: () -> Unit,
     onPurchaseSuccess: (PlanType) -> Unit = {},
+    onRedeemCoupon: (suspend (String) -> CouponResult)? = null,
     modifier: Modifier = Modifier
 ) {
     var currentStep by remember { mutableIntStateOf(initialStep.coerceIn(1, 3)) }
@@ -50,7 +54,132 @@ fun PaywallScreen(
     var isProcessing by remember { mutableStateOf(false) }
     var showGuestDialog by remember { mutableStateOf(false) }
 
+    var showCouponDialog by remember { mutableStateOf(false) }
+    var couponInput by remember { mutableStateOf("") }
+    var couponErrorText by remember { mutableStateOf<String?>(null) }
+    var couponSuccessText by remember { mutableStateOf<String?>(null) }
+    var isRedeemingCoupon by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     val totalSteps = 3
+
+    if (showCouponDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isRedeemingCoupon) {
+                    showCouponDialog = false
+                    couponInput = ""
+                    couponErrorText = null
+                    couponSuccessText = null
+                }
+            },
+            title = {
+                ResponsiveText(
+                    text = "Redeem Coupon Code",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ResponsiveText(
+                        text = "Enter your secret promo or member coupon code below to unlock Pro access.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+
+                    OutlinedTextField(
+                        value = couponInput,
+                        onValueChange = {
+                            couponInput = it
+                            couponErrorText = null
+                        },
+                        placeholder = { Text("e.g. FRICTIONMEMBER2026", color = TextMuted) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = FrictionPrimary,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (couponErrorText != null) {
+                        ResponsiveText(
+                            text = couponErrorText!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    if (couponSuccessText != null) {
+                        ResponsiveText(
+                            text = couponSuccessText!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = FrictionAccent,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                FrictionButton(
+                    text = if (isRedeemingCoupon) "Validating..." else "Apply Coupon",
+                    isLoading = isRedeemingCoupon,
+                    onClick = {
+                        if (couponInput.isBlank()) {
+                            couponErrorText = "Please enter a coupon code."
+                            return@FrictionButton
+                        }
+                        if (user?.guest == true) {
+                            showCouponDialog = false
+                            showGuestDialog = true
+                            return@FrictionButton
+                        }
+                        isRedeemingCoupon = true
+                        couponErrorText = null
+                        couponSuccessText = null
+                        coroutineScope.launch {
+                            val result = onRedeemCoupon?.invoke(couponInput)
+                            isRedeemingCoupon = false
+                            when (result) {
+                                is CouponResult.Success -> {
+                                    couponSuccessText = result.message
+                                    onPurchaseSuccess(PlanType.LIFETIME)
+                                    kotlinx.coroutines.delay(1200)
+                                    showCouponDialog = false
+                                }
+                                is CouponResult.Error -> {
+                                    couponErrorText = result.message
+                                }
+                                null -> {
+                                    couponErrorText = "Invalid or expired coupon."
+                                }
+                            }
+                        }
+                    }
+                )
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isRedeemingCoupon,
+                    onClick = {
+                        showCouponDialog = false
+                        couponInput = ""
+                        couponErrorText = null
+                        couponSuccessText = null
+                    }
+                ) {
+                    ResponsiveText("Cancel", color = TextMuted)
+                }
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
 
     if (showGuestDialog) {
         AlertDialog(
@@ -242,6 +371,21 @@ fun PaywallScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (currentStep == totalSteps) {
+                    TextButton(
+                        onClick = { showCouponDialog = true },
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        ResponsiveText(
+                            text = "Have a coupon code?",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = FrictionAccent,
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    }
+                }
 
                 Row(
                     horizontalArrangement = Arrangement.Center,

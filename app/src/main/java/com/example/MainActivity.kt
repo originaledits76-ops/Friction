@@ -42,6 +42,8 @@ data class BlockConfig(
     val packageName: String,
     val ruleId: String,
     val ruleName: String,
+    val challengeType: String = "MATH",
+    val challengeValue: Int = 10,
     val isExpired: Boolean = false
 )
 
@@ -105,11 +107,20 @@ class MainActivity : ComponentActivity() {
                             if (config != null) {
                                 ActiveBlockerScreen(
                                     user = user,
-                                    rule = currentHomeViewModel.rules.collectAsState().value.find { it.id == config.ruleId } ?: FrictionRule(
+                                    rule = (currentHomeViewModel.rules.collectAsState().value.find { 
+                                        it.id == config.ruleId || (it.targetAppPackage != null && it.targetAppPackage == config.packageName)
+                                    } ?: FrictionRule(
                                         id = config.ruleId,
                                         name = config.ruleName,
-                                        targetAppPackage = config.packageName
-                                    ),
+                                        targetAppPackage = config.packageName,
+                                        targetAppName = config.ruleName,
+                                        challengeType = config.challengeType,
+                                        challengeValue = config.challengeValue
+                                    )).let { matched ->
+                                        if (config.challengeType.isNotBlank() && config.challengeType != "MATH" && matched.challengeType == "MATH") {
+                                            matched.copy(challengeType = config.challengeType, challengeValue = config.challengeValue)
+                                        } else matched
+                                    },
                                     isExpiredMode = config.isExpired,
                                     onComplete = { xp, coins, durationMinutes ->
                                         // Grant temporary unlock allowance to the specific target app package
@@ -226,12 +237,16 @@ class MainActivity : ComponentActivity() {
         val blockPackage = intent.getStringExtra("BLOCK_PACKAGE")
         val blockRuleId = intent.getStringExtra("BLOCK_RULE_ID")
         val blockRuleName = intent.getStringExtra("BLOCK_RULE_NAME")
+        val blockChallengeType = intent.getStringExtra("BLOCK_CHALLENGE_TYPE") ?: "MATH"
+        val blockChallengeValue = intent.getIntExtra("BLOCK_CHALLENGE_VALUE", 10)
         val isExpired = intent.getBooleanExtra("BLOCK_IS_EXPIRED", false)
         if (!blockPackage.isNullOrEmpty() && !blockRuleId.isNullOrEmpty()) {
             activeBlockedAppConfig = BlockConfig(
                 packageName = blockPackage,
                 ruleId = blockRuleId,
                 ruleName = blockRuleName ?: "App Limit",
+                challengeType = blockChallengeType,
+                challengeValue = blockChallengeValue,
                 isExpired = isExpired
             )
         }

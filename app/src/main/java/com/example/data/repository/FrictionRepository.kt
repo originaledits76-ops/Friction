@@ -123,7 +123,11 @@ class FrictionRepository(
                     "thresholdMinutes" to rule.thresholdMinutes,
                     "penaltyXp" to rule.penaltyXp,
                     "active" to rule.active,
-                    "createdAt" to rule.createdAt
+                    "createdAt" to rule.createdAt,
+                    "targetAppName" to rule.targetAppName,
+                    "triggerType" to rule.triggerType,
+                    "challengeType" to rule.challengeType,
+                    "challengeValue" to rule.challengeValue
                 )
                 db.collection("rules").document("${uid}_${rule.id}")
                     .set(ruleMap, SetOptions.merge()).await()
@@ -239,6 +243,10 @@ class FrictionRepository(
                 val penaltyXp = doc.getLong("penaltyXp")?.toInt() ?: 10
                 val active = doc.getBoolean("active") ?: true
                 val createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                val targetAppName = doc.getString("targetAppName") ?: name
+                val triggerType = doc.getString("triggerType") ?: "APP_OPEN"
+                val challengeType = doc.getString("challengeType") ?: "TYPING"
+                val challengeValue = doc.getLong("challengeValue")?.toInt() ?: 10
 
                 val ruleType = try {
                     RuleType.valueOf(typeStr)
@@ -254,7 +262,11 @@ class FrictionRepository(
                     thresholdMinutes = thresholdMinutes,
                     penaltyXp = penaltyXp,
                     active = active,
-                    createdAt = createdAt
+                    createdAt = createdAt,
+                    targetAppName = targetAppName,
+                    triggerType = triggerType,
+                    challengeType = challengeType,
+                    challengeValue = challengeValue
                 )
                 dao.insertRule(rule)
             }

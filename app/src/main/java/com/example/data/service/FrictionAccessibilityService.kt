@@ -115,6 +115,8 @@ class FrictionAccessibilityService : AccessibilityService() {
                     putExtra("BLOCK_PACKAGE", pkg)
                     putExtra("BLOCK_RULE_ID", matchingRule.id)
                     putExtra("BLOCK_RULE_NAME", matchingRule.name)
+                    putExtra("BLOCK_CHALLENGE_TYPE", matchingRule.challengeType)
+                    putExtra("BLOCK_CHALLENGE_VALUE", matchingRule.challengeValue)
                     putExtra("BLOCK_IS_EXPIRED", isExpired)
                 }
                 startActivity(intent)

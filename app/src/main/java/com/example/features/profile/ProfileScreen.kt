@@ -177,29 +177,61 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Auth Type Badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (user.guest) FrictionSecondary.copy(alpha = 0.15f) else FrictionPrimary.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, if (user.guest) FrictionSecondary.copy(alpha = 0.3f) else FrictionPrimary.copy(alpha = 0.3f))
+                    // Auth & Premium Status Badges Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (user.guest) FrictionSecondary.copy(alpha = 0.15f) else FrictionPrimary.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, if (user.guest) FrictionSecondary.copy(alpha = 0.3f) else FrictionPrimary.copy(alpha = 0.3f))
                         ) {
-                            Icon(
-                                imageVector = if (user.guest) Icons.Default.PersonOutline else Icons.Default.Verified,
-                                contentDescription = null,
-                                tint = if (user.guest) FrictionSecondary else FrictionPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            ResponsiveText(
-                                text = if (user.guest) "Guest Member" else "Google Member",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (user.guest) FrictionSecondary else FrictionPrimary
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (user.guest) Icons.Default.PersonOutline else Icons.Default.Verified,
+                                    contentDescription = null,
+                                    tint = if (user.guest) FrictionSecondary else FrictionPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                ResponsiveText(
+                                    text = if (user.guest) "Guest" else "Google",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (user.guest) FrictionSecondary else FrictionPrimary
+                                )
+                            }
+                        }
+
+                        val isEntitled = user.isPremiumEntitled()
+                        val badgeColor = if (isEntitled) FrictionAccent else TextMuted
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = badgeColor.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isEntitled) Icons.Default.WorkspacePremium else Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = badgeColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                ResponsiveText(
+                                    text = user.getEntitlementStatusText(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = badgeColor
+                                )
+                            }
                         }
                     }
 

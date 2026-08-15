@@ -68,6 +68,34 @@ data class User(
         )
     }
 
+    fun isPremiumEntitled(): Boolean {
+        val now = System.currentTimeMillis()
+        if (isTrialActive && trialEndsAt > now) return true
+        return premium
+    }
+
+    fun getEntitlementStatusText(): String {
+        val now = System.currentTimeMillis()
+        if (isTrialActive && trialEndsAt > now) {
+            val remainingDays = maxOf(1L, (trialEndsAt - now + 86399999L) / (86400000L))
+            return "PRO TRIAL — $remainingDays DAY${if (remainingDays > 1) "S" else ""} LEFT"
+        }
+        if (premium) {
+            return when (premiumPlan.uppercase()) {
+                "LIFETIME" -> "LIFETIME PRO"
+                "MONTHLY" -> "MONTHLY PRO"
+                "ANNUAL", "YEARLY" -> "ANNUAL PRO"
+                else -> when (subscriptionStatus.uppercase()) {
+                    "LIFETIME_PRO" -> "LIFETIME PRO"
+                    "MONTHLY_PRO" -> "MONTHLY PRO"
+                    "ANNUAL_PRO" -> "ANNUAL PRO"
+                    else -> "PRO MEMBER"
+                }
+            }
+        }
+        return "FREE PLAN"
+    }
+
     fun hasTrialExpired(): Boolean {
         if (!isTrialActive) return false
         return System.currentTimeMillis() >= trialEndsAt

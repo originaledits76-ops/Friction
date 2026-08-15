@@ -356,26 +356,41 @@ class AuthRepository(private val context: Context) {
                     val uid = fbUser.uid
                     prefs.edit().putString("active_uid", uid).putBoolean("demo_logged_in", true).apply()
                     
-                    val cachedUser = getCachedUser(uid)
-                    val finalUser = User(
-                        uid = uid,
-                        displayName = fbUser.displayName ?: displayName.ifEmpty { cachedUser.displayName.ifEmpty { "Google Member" } },
-                        email = fbUser.email ?: email.ifEmpty { cachedUser.email },
-                        photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: cachedUser.photoUrl,
-                        guest = false,
-                        goal = cachedUser.goal,
-                        age = if (cachedUser.age > 0) cachedUser.age else 25,
-                        motivation = cachedUser.motivation
-                    )
+                    val existingRemoteUser = withContext(Dispatchers.IO) { userRepository.getUser(uid) }
+                    
+                    val finalUser = if (existingRemoteUser != null && existingRemoteUser.goal.isNotEmpty()) {
+                        Log.i(tag, "[AuthFlow] Returning user detected for UID '$uid'. Restoring existing Firestore profile data.")
+                        existingRemoteUser.copy(
+                            displayName = fbUser.displayName ?: displayName.ifEmpty { existingRemoteUser.displayName },
+                            email = fbUser.email ?: email.ifEmpty { existingRemoteUser.email },
+                            photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: existingRemoteUser.photoUrl,
+                            guest = false
+                        )
+                    } else {
+                        Log.i(tag, "[AuthFlow] New user detected for UID '$uid'. Initializing onboarding state.")
+                        val cachedUser = getCachedUser(uid)
+                        User(
+                            uid = uid,
+                            displayName = fbUser.displayName ?: displayName.ifEmpty { cachedUser.displayName.ifEmpty { "Google Member" } },
+                            email = fbUser.email ?: email.ifEmpty { cachedUser.email },
+                            photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: cachedUser.photoUrl,
+                            guest = false,
+                            goal = cachedUser.goal,
+                            age = if (cachedUser.age > 0) cachedUser.age else 0,
+                            motivation = cachedUser.motivation
+                        )
+                    }
                     
                     saveCachedUser(finalUser)
                     _authStatus.value = AuthStatus.Authenticated(finalUser)
 
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            userRepository.createOrUpdateUser(finalUser)
-                        } catch (e: Exception) {
-                            Log.w(tag, "[AuthFlow] Async Firestore profile save skipped: ${e.message}")
+                    if (existingRemoteUser == null || existingRemoteUser.goal.isEmpty()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                userRepository.createOrUpdateUser(finalUser)
+                            } catch (e: Exception) {
+                                Log.w(tag, "[AuthFlow] Async Firestore profile save skipped: ${e.message}")
+                            }
                         }
                     }
                 } else {
@@ -508,5 +523,35 @@ class AuthRepository(private val context: Context) {
         } else {
             Log.e(tag, "[updateOnboardingData] Cannot save onboarding data because user is unauthenticated")
         }
+    }
+
+    suspend fun startFreeTrial(user: User): User? {
+        if (user.trialConsumed) {
+            Log.w(tag, "[startFreeTrial] User '${user.uid}' has already consumed their free trial.")
+            return null
+        }
+        val now = System.currentTimeMillis()
+        val threeDaysMs = 3L * 24 * 3600 * 1000
+        val updatedUser = user.copy(
+            premium = true,
+            isTrialActive = true,
+            trialStartedAt = now,
+            trialEndsAt = now + threeDaysMs,
+            trialConsumed = true,
+            subscriptionStatus = "ACTIVE",
+            premiumPlan = "TRIAL",
+            lastTrialValidation = now
+        )
+        saveCachedUser(updatedUser)
+        withContext(Dispatchers.IO) {
+            userRepository.createOrUpdateUser(updatedUser)
+        }
+        _authStatus.value = AuthStatus.Authenticated(updatedUser)
+        return updatedUser
+    }
+
+    suspend fun redeemCoupon(code: String, user: User): CouponResult {
+        val couponRepo = CouponRepository(firestoreService, userRepository)
+        return couponRepo.redeemCoupon(code, user, this)
     }
 }
