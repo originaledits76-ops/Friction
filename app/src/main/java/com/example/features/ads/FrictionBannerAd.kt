@@ -1,5 +1,6 @@
 package com.example.features.ads
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,37 +23,14 @@ fun FrictionBannerAd(user: User?, modifier: Modifier = Modifier) {
 
     var isAdLoaded by remember { mutableStateOf(false) }
 
-    if (isAdLoaded) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            AndroidView(
-                modifier = Modifier.fillMaxWidth(),
-                factory = { context ->
-                    AdView(context).apply {
-                        setAdSize(AdSize.BANNER)
-                        adUnitId = AdManager.BANNER_AD_UNIT_ID
-                        adListener = object : AdListener() {
-                            override fun onAdLoaded() {
-                                isAdLoaded = true
-                            }
-
-                            override fun onAdFailedToLoad(error: LoadAdError) {
-                                isAdLoaded = false
-                            }
-                        }
-                        loadAd(AdRequest.Builder().build())
-                    }
-                }
-            )
-        }
-    } else {
-        // Render offscreen/hidden factory to trigger loadListener without taking UI space
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (isAdLoaded) Modifier.padding(vertical = 4.dp) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
         AndroidView(
-            modifier = Modifier,
+            modifier = if (isAdLoaded) Modifier.fillMaxWidth() else Modifier,
             factory = { context ->
                 AdView(context).apply {
                     setAdSize(AdSize.BANNER)
@@ -64,11 +42,17 @@ fun FrictionBannerAd(user: User?, modifier: Modifier = Modifier) {
 
                         override fun onAdFailedToLoad(error: LoadAdError) {
                             isAdLoaded = false
+                            Log.w("FrictionBannerAd", "Banner ad failed to load: ${error.message}")
                         }
                     }
-                    loadAd(AdRequest.Builder().build())
+                    try {
+                        loadAd(AdRequest.Builder().build())
+                    } catch (e: Throwable) {
+                        Log.e("FrictionBannerAd", "Exception while loading banner ad: ${e.message}")
+                    }
                 }
             }
         )
     }
 }
+

@@ -68,49 +68,63 @@ object AdManager {
     private fun loadInterstitialAd(context: Context) {
         if (isPremiumUser || interstitialAd != null || isInterstitialLoading) return
 
-        isInterstitialLoading = true
-        val adRequest = AdRequest.Builder().build()
+        try {
+            isInterstitialLoading = true
+            val adRequest = AdRequest.Builder().build()
 
-        InterstitialAd.load(
-            context,
-            INTERSTITIAL_AD_UNIT_ID,
-            adRequest,
-            object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    interstitialAd = ad
-                    isInterstitialLoading = false
-                }
+            InterstitialAd.load(
+                context,
+                INTERSTITIAL_AD_UNIT_ID,
+                adRequest,
+                object : InterstitialAdLoadCallback() {
+                    override fun onAdLoaded(ad: InterstitialAd) {
+                        interstitialAd = ad
+                        isInterstitialLoading = false
+                    }
 
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    interstitialAd = null
-                    isInterstitialLoading = false
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        interstitialAd = null
+                        isInterstitialLoading = false
+                        Log.w(TAG, "Interstitial failed to load: ${error.message}")
+                    }
                 }
-            }
-        )
+            )
+        } catch (e: Throwable) {
+            interstitialAd = null
+            isInterstitialLoading = false
+            Log.e(TAG, "Exception loading interstitial ad: ${e.message}")
+        }
     }
 
     private fun loadRewardedAd(context: Context) {
         if (isPremiumUser || rewardedAd != null || isRewardedLoading) return
 
-        isRewardedLoading = true
-        val adRequest = AdRequest.Builder().build()
+        try {
+            isRewardedLoading = true
+            val adRequest = AdRequest.Builder().build()
 
-        RewardedAd.load(
-            context,
-            REWARDED_AD_UNIT_ID,
-            adRequest,
-            object : RewardedAdLoadCallback() {
-                override fun onAdLoaded(ad: RewardedAd) {
-                    rewardedAd = ad
-                    isRewardedLoading = false
-                }
+            RewardedAd.load(
+                context,
+                REWARDED_AD_UNIT_ID,
+                adRequest,
+                object : RewardedAdLoadCallback() {
+                    override fun onAdLoaded(ad: RewardedAd) {
+                        rewardedAd = ad
+                        isRewardedLoading = false
+                    }
 
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    rewardedAd = null
-                    isRewardedLoading = false
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        rewardedAd = null
+                        isRewardedLoading = false
+                        Log.w(TAG, "Rewarded ad failed to load: ${error.message}")
+                    }
                 }
-            }
-        )
+            )
+        } catch (e: Throwable) {
+            rewardedAd = null
+            isRewardedLoading = false
+            Log.e(TAG, "Exception loading rewarded ad: ${e.message}")
+        }
     }
 
     fun handleAppOpen(context: Context, activity: Activity?, isSafeToDisplay: () -> Boolean) {
@@ -156,28 +170,35 @@ object AdManager {
             return
         }
 
-        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() {
-                _isAdShowing.value = false
-                interstitialAd = null
-                onComplete()
+        try {
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    _isAdShowing.value = false
+                    interstitialAd = null
+                    onComplete()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    _isAdShowing.value = false
+                    interstitialAd = null
+                    onComplete()
+                }
+
+                override fun onAdShowedFullScreenContent() {
+                    _isAdShowing.value = true
+                    lastInterstitialTime = System.currentTimeMillis()
+                    prefs.edit().putLong("last_interstitial_timestamp", lastInterstitialTime).apply()
+                    interstitialAd = null
+                }
             }
 
-            override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                _isAdShowing.value = false
-                interstitialAd = null
-                onComplete()
-            }
-
-            override fun onAdShowedFullScreenContent() {
-                _isAdShowing.value = true
-                lastInterstitialTime = System.currentTimeMillis()
-                prefs.edit().putLong("last_interstitial_timestamp", lastInterstitialTime).apply()
-                interstitialAd = null
-            }
+            ad.show(activity)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Exception showing interstitial ad: ${e.message}")
+            _isAdShowing.value = false
+            interstitialAd = null
+            onComplete()
         }
-
-        ad.show(activity)
     }
 
     fun showRewardedAd(activity: Activity, onRewardEarned: () -> Unit, onDismissed: (Boolean) -> Unit) {
@@ -190,30 +211,38 @@ object AdManager {
 
         var rewardGranted = false
 
-        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() {
-                _isAdShowing.value = false
-                rewardedAd = null
-                onDismissed(rewardGranted)
-                loadRewardedAd(activity.applicationContext)
+        try {
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    _isAdShowing.value = false
+                    rewardedAd = null
+                    onDismissed(rewardGranted)
+                    loadRewardedAd(activity.applicationContext)
+                }
+
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    _isAdShowing.value = false
+                    rewardedAd = null
+                    onDismissed(false)
+                    loadRewardedAd(activity.applicationContext)
+                }
+
+                override fun onAdShowedFullScreenContent() {
+                    _isAdShowing.value = true
+                    rewardedAd = null
+                }
             }
 
-            override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                _isAdShowing.value = false
-                rewardedAd = null
-                onDismissed(false)
-                loadRewardedAd(activity.applicationContext)
+            ad.show(activity) { _ ->
+                rewardGranted = true
+                onRewardEarned()
             }
-
-            override fun onAdShowedFullScreenContent() {
-                _isAdShowing.value = true
-                rewardedAd = null
-            }
-        }
-
-        ad.show(activity) { _ ->
-            rewardGranted = true
-            onRewardEarned()
+        } catch (e: Throwable) {
+            Log.e(TAG, "Exception showing rewarded ad: ${e.message}")
+            _isAdShowing.value = false
+            rewardedAd = null
+            onDismissed(false)
+            loadRewardedAd(activity.applicationContext)
         }
     }
 }

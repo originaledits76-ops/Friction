@@ -67,7 +67,6 @@ class MainActivity : ComponentActivity() {
         
         // Attempt Firebase Initialization and set up core components safely
         tryInitServices()
-        com.example.features.ads.AdManager.initialize(applicationContext)
 
         // Check incoming intent for background block triggers
         checkIntentForBlock(intent)
@@ -81,7 +80,6 @@ class MainActivity : ComponentActivity() {
                         errorMessage = error,
                         onRetry = {
                             tryInitServices()
-        com.example.features.ads.AdManager.initialize(applicationContext)
                         }
                     )
                 } else {
