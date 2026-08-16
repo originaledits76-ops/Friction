@@ -280,7 +280,7 @@ private fun Step1BenefitsAndFeatures() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Image(
-                painter = painterResource(id = R.drawable.mascot_premium),
+                painter = painterResource(id = R.drawable.premium),
                 contentDescription = "Flick Premium Mascot",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier

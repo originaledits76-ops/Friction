@@ -108,7 +108,7 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.mascot_dashboard),
+                        painter = painterResource(id = R.drawable.dashboard),
                         contentDescription = "Mascot",
                         modifier = Modifier.size(48.dp),
                         contentScale = ContentScale.Fit

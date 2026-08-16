@@ -128,7 +128,7 @@ fun FeedbackScreen(
 
                 // Mascot Avatar Icon
                 Image(
-                    painter = painterResource(id = R.drawable.mascot_hi),
+                    painter = painterResource(id = R.drawable.hi),
                     contentDescription = "Flick Mascot",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.size(42.dp)
@@ -366,7 +366,7 @@ fun FeedbackScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.mascot_success),
+                            painter = painterResource(id = R.drawable.success),
                             contentDescription = "Success",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.size(90.dp)

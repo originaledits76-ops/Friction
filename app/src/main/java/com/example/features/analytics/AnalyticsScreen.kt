@@ -157,7 +157,7 @@ fun AnalyticsScreen(
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.mascot_low_data),
+                        painter = painterResource(id = R.drawable.low_data),
                         contentDescription = "Flick Low Data Mascot",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.size(130.dp)
@@ -411,7 +411,7 @@ fun AnalyticsScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Image(
-                                painter = painterResource(id = R.drawable.mascot_analytics),
+                                painter = painterResource(id = R.drawable.analytics),
                                 contentDescription = "Analytics Mascot",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.size(48.dp)

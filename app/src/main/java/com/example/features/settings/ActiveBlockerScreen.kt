@@ -122,7 +122,7 @@ fun ActiveBlockerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.mascot_challenge),
+                                painter = painterResource(id = R.drawable.challenge),
                                 contentDescription = "Flick Challenge Mascot",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.size(110.dp)
@@ -284,7 +284,7 @@ fun ActiveBlockerScreen(
                     )
 
                     Image(
-                        painter = painterResource(id = R.drawable.mascot_success),
+                        painter = painterResource(id = R.drawable.success),
                         contentDescription = "Flick Success Mascot",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
@@ -1068,7 +1068,7 @@ fun DurationSelectionUI(
             .padding(16.dp)
     ) {
         Image(
-            painter = painterResource(id = R.drawable.mascot_challenge),
+            painter = painterResource(id = R.drawable.challenge),
             contentDescription = "Mascot",
             contentScale = ContentScale.Fit,
             modifier = Modifier.size(100.dp)

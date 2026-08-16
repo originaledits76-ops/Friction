@@ -122,7 +122,7 @@ fun LoginScreen(
                         FrictionSpinner()
                     } else {
                         Image(
-                            painter = painterResource(id = R.drawable.mascot_hi),
+                            painter = painterResource(id = R.drawable.hi),
                             contentDescription = "Flick Mascot",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
