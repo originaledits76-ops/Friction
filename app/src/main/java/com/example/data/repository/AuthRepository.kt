@@ -549,9 +549,4 @@ class AuthRepository(private val context: Context) {
         _authStatus.value = AuthStatus.Authenticated(updatedUser)
         return updatedUser
     }
-
-    suspend fun redeemCoupon(code: String, user: User): CouponResult {
-        val couponRepo = CouponRepository(firestoreService, userRepository)
-        return couponRepo.redeemCoupon(code, user, this)
-    }
 }

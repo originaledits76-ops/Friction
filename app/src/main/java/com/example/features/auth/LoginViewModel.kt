@@ -45,8 +45,4 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
     suspend fun startFreeTrial(user: com.example.data.model.User): com.example.data.model.User? {
         return authRepository.startFreeTrial(user)
     }
-
-    suspend fun redeemCoupon(code: String, user: com.example.data.model.User): com.example.data.repository.CouponResult {
-        return authRepository.redeemCoupon(code, user)
-    }
 }

@@ -110,13 +110,6 @@ fun HomeScreen(
             onPurchaseSuccess = { plan ->
                 homeViewModel.purchasePlan(user, plan.name)
                 showPaywall = false
-            },
-            onRedeemCoupon = { code ->
-                if (user == null) {
-                    com.example.data.repository.CouponResult.Error("Please log in first.")
-                } else {
-                    loginViewModel.redeemCoupon(code, user)
-                }
             }
         )
         return

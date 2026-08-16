@@ -1,5 +1,6 @@
 package com.example.features.analytics
 
+import com.example.R
 import com.example.core.widgets.ResponsiveText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -156,7 +157,7 @@ fun AnalyticsScreen(
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = com.example.R.drawable.mascot_low_data),
+                        painter = painterResource(id = R.drawable.mascot_low_data),
                         contentDescription = "Flick Low Data Mascot",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.size(130.dp)
@@ -410,7 +411,7 @@ fun AnalyticsScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Image(
-                                painter = painterResource(id = com.example.R.drawable.mascot_analytics),
+                                painter = painterResource(id = R.drawable.mascot_analytics),
                                 contentDescription = "Analytics Mascot",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.size(48.dp)
