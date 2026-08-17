@@ -153,6 +153,20 @@ class AuthRepository(private val context: Context) {
         return user
     }
 
+    private fun getWebClientId(): String {
+        return try {
+            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+            if (resId != 0) {
+                val foundId = context.getString(resId)
+                if (foundId.isNotBlank()) foundId else "233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com"
+            } else {
+                "233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com"
+            }
+        } catch (e: Exception) {
+            "233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com"
+        }
+    }
+
     private fun checkInitialAuthState() {
         _authStatus.value = AuthStatus.Loading
         CoroutineScope(Dispatchers.Main).launch {
@@ -160,57 +174,22 @@ class AuthRepository(private val context: Context) {
                 val fbUser = try { firebaseAuth?.currentUser } catch (e: Exception) { null }
                 val isDemoLoggedIn = prefs.getBoolean("demo_logged_in", false)
                 val savedUid = prefs.getString("active_uid", null) ?: prefs.getString("demo_uid", null)
-                val anonUid = prefs.getString("anonymous_uid", null)
 
-                val targetUid = fbUser?.uid ?: savedUid ?: anonUid
+                val targetUid = fbUser?.uid ?: if (isDemoLoggedIn) savedUid else null
 
                 if (targetUid != null) {
                     val cachedUser = getCachedUser(targetUid)
-                    val finalUser = if (cachedUser.goal.isEmpty()) {
-                        cachedUser.copy(
-                            uid = targetUid,
-                            displayName = cachedUser.displayName.ifEmpty { if (fbUser?.isAnonymous == true || targetUid.startsWith("anon")) "Guest Companion" else "Friction Member" },
-                            guest = fbUser?.isAnonymous ?: targetUid.startsWith("anon") ?: true,
-                            goal = "Reduce Screen Time",
-                            age = if (cachedUser.age > 0) cachedUser.age else 22
-                        )
-                    } else {
-                        cachedUser
-                    }
-                    saveCachedUser(finalUser)
-                    _authStatus.value = AuthStatus.Authenticated(finalUser)
-                    Log.i(tag, "[checkInitialAuthState] Restored active session for UID '$targetUid' (Goal: '${finalUser.goal}')")
+                    _authStatus.value = AuthStatus.Authenticated(cachedUser)
+                    Log.i(tag, "[checkInitialAuthState] Restored active session for UID '$targetUid' (Goal: '${cachedUser.goal}')")
 
-                    // Asynchronously attempt remote sync and background Firebase Auth sign-in without blocking UI
+                    // Asynchronously attempt remote sync without blocking UI
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
-                            val currentAuthUser = firebaseAuth?.currentUser
-                            if (currentAuthUser == null) {
-                                try {
-                                    val authResult = withTimeoutOrNull(3000L) {
-                                        firebaseAuth?.signInAnonymously()?.await()
-                                    }
-                                    Log.i(tag, "[checkInitialAuthState] Background anonymous sign-in completed. UID: ${authResult?.user?.uid}")
-                                } catch (e: Exception) {
-                                    Log.w(tag, "[checkInitialAuthState] Background anonymous sign-in skipped: ${e.message}")
-                                }
-                            }
-                            
-                            withTimeoutOrNull(2500L) {
-                                val activeUid = firebaseAuth?.currentUser?.uid ?: targetUid
-                                userRepository.createOrUpdateUser(finalUser.copy(uid = activeUid))
-                                val remoteUser = userRepository.getUser(activeUid)
-                                if (remoteUser != null) {
-                                    val merged = remoteUser.copy(
-                                        displayName = remoteUser.displayName.ifEmpty { finalUser.displayName },
-                                        age = if (remoteUser.age > 0) remoteUser.age else finalUser.age,
-                                        goal = remoteUser.goal.ifEmpty { finalUser.goal },
-                                        customGoal = remoteUser.customGoal.ifEmpty { finalUser.customGoal },
-                                        motivation = remoteUser.motivation.ifEmpty { finalUser.motivation }
-                                    )
-                                    saveCachedUser(merged)
-                                    _authStatus.value = AuthStatus.Authenticated(merged)
-                                }
+                            val activeUid = firebaseAuth?.currentUser?.uid ?: targetUid
+                            val remoteUser = userRepository.getUser(activeUid)
+                            if (remoteUser != null) {
+                                saveCachedUser(remoteUser)
+                                _authStatus.value = AuthStatus.Authenticated(remoteUser)
                             }
                         } catch (e: Exception) {
                             Log.w(tag, "[checkInitialAuthState] Async remote fetch skipped: ${e.message}")
@@ -231,61 +210,50 @@ class AuthRepository(private val context: Context) {
         _authStatus.value = AuthStatus.Loading
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Persistent anonymous UID
-                var anonUid = prefs.getString("anonymous_uid", null)
-                if (anonUid == null) {
-                    anonUid = "anon_${UUID.randomUUID().toString().take(12)}"
-                    prefs.edit().putString("anonymous_uid", anonUid).apply()
-                    Log.i(tag, "[signInAnonymously] Created new persistent anonymous UID: $anonUid")
-                } else {
-                    Log.i(tag, "[signInAnonymously] Reusing existing persistent anonymous UID: $anonUid")
-                }
-
-                // Attempt Firebase Anonymous Auth with non-blocking try
-                var fbUser: FirebaseUser? = null
                 val authInstance = firebaseAuth
-                if (authInstance != null) {
-                    try {
-                        val current = authInstance.currentUser
-                        if (current != null && current.isAnonymous) {
-                            fbUser = current
-                        } else {
-                            val authResult = authInstance.signInAnonymously().await()
-                            fbUser = authResult.user
-                        }
-                        Log.i(tag, "[signInAnonymously] FirebaseAuth result. FB UID: ${fbUser?.uid}")
-                    } catch (e: Exception) {
-                        Log.w(tag, "[signInAnonymously] FirebaseAuth sign-in exception: ${e.message}")
-                        throw e
+                var fbUser: FirebaseUser? = authInstance?.currentUser
+
+                if (fbUser == null || !fbUser.isAnonymous) {
+                    if (authInstance != null) {
+                        val authResult = authInstance.signInAnonymously().await()
+                        fbUser = authResult.user
                     }
                 }
 
-                if (fbUser == null) {
-                    throw Exception("Firebase Auth failed to return a user.")
+                val targetUid = fbUser?.uid ?: prefs.getString("active_uid", null) ?: prefs.getString("anonymous_uid", null) ?: "anon_${UUID.randomUUID().toString().take(12)}"
+
+                prefs.edit().apply {
+                    putString("active_uid", targetUid)
+                    putString("anonymous_uid", targetUid)
+                    putBoolean("demo_logged_in", true)
+                    apply()
                 }
 
-                val targetUid = fbUser.uid
-                prefs.edit().putString("active_uid", targetUid).putBoolean("demo_logged_in", true).apply()
-
-                val cachedUser = getCachedUser(targetUid)
-                val finalUser = User(
-                    uid = targetUid,
-                    displayName = if (cachedUser.displayName.isNotBlank() && cachedUser.displayName != "Friction Companion") cachedUser.displayName else "Guest Companion",
-                    email = cachedUser.email,
-                    guest = true,
-                    createdAt = if (cachedUser.createdAt > 0) cachedUser.createdAt else System.currentTimeMillis(),
-                    premium = cachedUser.premium,
-                    level = cachedUser.level,
-                    xp = cachedUser.xp,
-                    coins = cachedUser.coins,
-                    currentStreak = cachedUser.currentStreak,
-                    age = cachedUser.age,
-                    goal = cachedUser.goal,
-                    customGoal = cachedUser.customGoal,
-                    motivation = cachedUser.motivation,
-                    unlockedBadges = cachedUser.unlockedBadges,
-                    customObjects = cachedUser.customObjects
-                )
+                val existingRemoteUser = withContext(Dispatchers.IO) { userRepository.getUser(targetUid) }
+                val finalUser = if (existingRemoteUser != null) {
+                    Log.i(tag, "[signInAnonymously] Existing guest user detected for UID '$targetUid'. Restoring profile.")
+                    existingRemoteUser
+                } else {
+                    val cachedUser = getCachedUser(targetUid)
+                    User(
+                        uid = targetUid,
+                        displayName = if (cachedUser.displayName.isNotBlank() && cachedUser.displayName != "Friction Companion") cachedUser.displayName else "Guest Companion",
+                        email = cachedUser.email,
+                        guest = true,
+                        createdAt = if (cachedUser.createdAt > 0) cachedUser.createdAt else System.currentTimeMillis(),
+                        premium = cachedUser.premium,
+                        level = cachedUser.level,
+                        xp = cachedUser.xp,
+                        coins = cachedUser.coins,
+                        currentStreak = cachedUser.currentStreak,
+                        age = cachedUser.age,
+                        goal = cachedUser.goal,
+                        customGoal = cachedUser.customGoal,
+                        motivation = cachedUser.motivation,
+                        unlockedBadges = cachedUser.unlockedBadges,
+                        customObjects = cachedUser.customObjects
+                    )
+                }
 
                 // Save locally so guest session is persistent instantly
                 saveCachedUser(finalUser)
@@ -294,15 +262,18 @@ class AuthRepository(private val context: Context) {
                 _authStatus.value = AuthStatus.Authenticated(finalUser)
                 Log.i(tag, "[signInAnonymously] Guest authentication complete for UID '$targetUid'")
 
-                // Synchronously sync with Firestore to ensure user is created
-                try {
-                    userRepository.createOrUpdateUser(finalUser)
-                } catch (e: Exception) {
-                    Log.w(tag, "[signInAnonymously] Firestore sync failed: ${e.message}")
+                if (existingRemoteUser == null) {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            userRepository.createOrUpdateUser(finalUser)
+                        } catch (e: Exception) {
+                            Log.w(tag, "[signInAnonymously] Firestore sync failed: ${e.message}")
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                Log.e(tag, "[signInAnonymously] Error during login: ${e.message}", e)
-                _authStatus.value = AuthStatus.Error("Failed to authenticate anonymously: ${e.localizedMessage}")
+                Log.e(tag, "[signInAnonymously] Error during guest sign-in: ${e.message}", e)
+                _authStatus.value = AuthStatus.Error("Guest Sign-In failed: ${e.localizedMessage ?: e.message}")
             }
         }
     }
@@ -314,10 +285,11 @@ class AuthRepository(private val context: Context) {
             try {
                 Log.i(tag, "[AuthFlow] Step 2: Launching official Google Account Picker on Main thread")
                 val credentialManager = CredentialManager.create(activity)
+                val webClientId = getWebClientId()
                 
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId("233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com")
+                    .setServerClientId(webClientId)
                     .setAutoSelectEnabled(false) // Force Google Account Picker dialog
                     .build()
 
@@ -338,15 +310,10 @@ class AuthRepository(private val context: Context) {
                     
                     val fbCredential = GoogleAuthProvider.getCredential(idToken, null)
                     var fbUser: FirebaseUser? = null
-                    try {
-                        val authInstance = firebaseAuth
-                        if (authInstance != null) {
-                            val authResult = authInstance.signInWithCredential(fbCredential).await()
-                            fbUser = authResult.user
-                        }
-                    } catch (e: Exception) {
-                        Log.w(tag, "[AuthFlow] Firebase Auth exception during sign in with credential: ${e.message}")
-                        throw e
+                    val authInstance = firebaseAuth
+                    if (authInstance != null) {
+                        val authResult = authInstance.signInWithCredential(fbCredential).await()
+                        fbUser = authResult.user
                     }
                     
                     if (fbUser == null) {
@@ -358,39 +325,33 @@ class AuthRepository(private val context: Context) {
                     
                     val existingRemoteUser = withContext(Dispatchers.IO) { userRepository.getUser(uid) }
                     
-                    val finalUser = if (existingRemoteUser != null && existingRemoteUser.goal.isNotEmpty()) {
+                    val finalUser = if (existingRemoteUser != null) {
                         Log.i(tag, "[AuthFlow] Returning user detected for UID '$uid'. Restoring existing Firestore profile data.")
                         existingRemoteUser.copy(
-                            displayName = fbUser.displayName ?: displayName.ifEmpty { existingRemoteUser.displayName },
+                            displayName = fbUser.displayName ?: displayName.ifEmpty { existingRemoteUser.displayName.ifEmpty { "Google Member" } },
                             email = fbUser.email ?: email.ifEmpty { existingRemoteUser.email },
                             photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: existingRemoteUser.photoUrl,
                             guest = false
                         )
                     } else {
-                        Log.i(tag, "[AuthFlow] New user detected for UID '$uid'. Initializing onboarding state.")
-                        val cachedUser = getCachedUser(uid)
+                        Log.i(tag, "[AuthFlow] New user detected for UID '$uid'. Initializing user state.")
                         User(
                             uid = uid,
-                            displayName = fbUser.displayName ?: displayName.ifEmpty { cachedUser.displayName.ifEmpty { "Google Member" } },
-                            email = fbUser.email ?: email.ifEmpty { cachedUser.email },
-                            photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: cachedUser.photoUrl,
-                            guest = false,
-                            goal = cachedUser.goal,
-                            age = if (cachedUser.age > 0) cachedUser.age else 0,
-                            motivation = cachedUser.motivation
+                            displayName = fbUser.displayName ?: displayName.ifEmpty { "Google Member" },
+                            email = fbUser.email ?: email.ifEmpty { "" },
+                            photoUrl = fbUser.photoUrl?.toString() ?: googleIdTokenCredential.profilePictureUri?.toString() ?: "",
+                            guest = false
                         )
                     }
                     
                     saveCachedUser(finalUser)
                     _authStatus.value = AuthStatus.Authenticated(finalUser)
 
-                    if (existingRemoteUser == null || existingRemoteUser.goal.isEmpty()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                userRepository.createOrUpdateUser(finalUser)
-                            } catch (e: Exception) {
-                                Log.w(tag, "[AuthFlow] Async Firestore profile save skipped: ${e.message}")
-                            }
+                    withContext(Dispatchers.IO) {
+                        try {
+                            userRepository.createOrUpdateUser(finalUser)
+                        } catch (e: Exception) {
+                            Log.w(tag, "[AuthFlow] Async Firestore profile save skipped: ${e.message}")
                         }
                     }
                 } else {
@@ -401,8 +362,8 @@ class AuthRepository(private val context: Context) {
                 Log.i(tag, "[AuthFlow] Google account selection cancelled by user.")
                 _authStatus.value = AuthStatus.Unauthenticated
             } catch (e: Exception) {
-                Log.w(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}.")
-                _authStatus.value = AuthStatus.Error("Google Sign-In failed: ${e.localizedMessage}")
+                Log.e(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}", e)
+                _authStatus.value = AuthStatus.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message}")
             }
         }
     }
@@ -413,9 +374,10 @@ class AuthRepository(private val context: Context) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val credentialManager = CredentialManager.create(activity)
+                val webClientId = getWebClientId()
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId("233127864359-habb02a5ekgljr4ffm9511i9hl8nrak0.apps.googleusercontent.com")
+                    .setServerClientId(webClientId)
                     .setAutoSelectEnabled(false)
                     .build()
 
@@ -469,7 +431,7 @@ class AuthRepository(private val context: Context) {
                 checkInitialAuthState()
             } catch (e: Exception) {
                 Log.e(tag, "[LinkAccount] Error during Google account linking: ${e.message}", e)
-                _authStatus.value = AuthStatus.Error("Account linking failed: ${e.localizedMessage}")
+                _authStatus.value = AuthStatus.Error("Account linking failed: ${e.localizedMessage ?: e.message}")
             }
         }
     }

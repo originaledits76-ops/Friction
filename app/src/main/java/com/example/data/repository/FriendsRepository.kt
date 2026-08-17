@@ -274,36 +274,49 @@ class FriendsRepository(private val firestoreService: FirestoreService) {
 
     suspend fun getAllAppUsersWithStatus(currentUid: String): List<FriendInfo> {
         val db = firestoreService.db ?: return emptyList()
-        if (currentUid.isEmpty()) return emptyList()
+
+        var friendUids = emptySet<String>()
+        var outgoingUids = emptySet<String>()
+        var incomingUids = emptySet<String>()
+
+        if (currentUid.isNotEmpty()) {
+            try {
+                val friendsSnap = db.collection("friends")
+                    .whereEqualTo("userUid", currentUid)
+                    .get().await()
+                friendUids = friendsSnap.documents.mapNotNull { it.getString("friendUid") }.toSet()
+            } catch (e: Exception) {
+                Log.w(tag, "Failed fetching established friends: ${e.message}")
+            }
+
+            try {
+                val outgoingSnap = db.collection("friend_requests")
+                    .whereEqualTo("fromUid", currentUid)
+                    .whereEqualTo("status", "PENDING")
+                    .get().await()
+                outgoingUids = outgoingSnap.documents.mapNotNull { it.getString("toUid") }.toSet()
+            } catch (e: Exception) {
+                Log.w(tag, "Failed fetching outgoing friend requests: ${e.message}")
+            }
+
+            try {
+                val incomingSnap = db.collection("friend_requests")
+                    .whereEqualTo("toUid", currentUid)
+                    .whereEqualTo("status", "PENDING")
+                    .get().await()
+                incomingUids = incomingSnap.documents.mapNotNull { it.getString("fromUid") }.toSet()
+            } catch (e: Exception) {
+                Log.w(tag, "Failed fetching incoming friend requests: ${e.message}")
+            }
+        }
 
         try {
-            // 1. Get all established friend uids
-            val friendsSnap = db.collection("friends")
-                .whereEqualTo("userUid", currentUid)
-                .get().await()
-            val friendUids = friendsSnap.documents.mapNotNull { it.getString("friendUid") }.toSet()
-
-            // 2. Get all outgoing pending request target uids
-            val outgoingSnap = db.collection("friend_requests")
-                .whereEqualTo("fromUid", currentUid)
-                .whereEqualTo("status", "PENDING")
-                .get().await()
-            val outgoingUids = outgoingSnap.documents.mapNotNull { it.getString("toUid") }.toSet()
-
-            // 3. Get all incoming pending request sender uids
-            val incomingSnap = db.collection("friend_requests")
-                .whereEqualTo("toUid", currentUid)
-                .whereEqualTo("status", "PENDING")
-                .get().await()
-            val incomingUids = incomingSnap.documents.mapNotNull { it.getString("fromUid") }.toSet()
-
-            // 4. Fetch all users from users collection
             val usersSnap = db.collection("users").get().await()
             val userList = mutableListOf<FriendInfo>()
 
             for (doc in usersSnap.documents) {
                 val uid = doc.id
-                if (uid == currentUid) continue
+                if (uid == currentUid && currentUid.isNotEmpty()) continue
 
                 val status = when {
                     friendUids.contains(uid) -> "FRIEND"
