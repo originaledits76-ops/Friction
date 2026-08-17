@@ -205,6 +205,14 @@ fun DashboardScreen(
                 }
             }
 
+            // Early Bird Trial Offer Banner (For non-premium users)
+            if (!isPremiumVerified) {
+                EarlyBirdTrialCard(
+                    onStartTrialClick = onStartFreeTrial,
+                    onOpenPaywallClick = onOpenPaywall
+                )
+            }
+
             // Screen Time Summary Card
             TodayScreenTimeCard(
                 todayScreenTimeMs = todayScreenTimeMs,
@@ -888,4 +896,134 @@ fun SetDailyLimitDialog(
             }
         }
     )
+}
+
+@Composable
+fun EarlyBirdTrialCard(
+    onStartTrialClick: () -> Unit,
+    onOpenPaywallClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onOpenPaywallClick() },
+        color = Color(0xFF0F172A),
+        border = BorderStroke(
+            width = 1.5.dp,
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFFF59E0B),
+                    FrictionPrimary,
+                    FrictionAccent
+                )
+            )
+        ),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1E293B).copy(alpha = 0.9f),
+                            Color(0xFF0F172A).copy(alpha = 0.95f)
+                        )
+                    )
+                )
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(50.dp),
+                        color = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stars,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            ResponsiveText(
+                                text = "EARLY BIRD SPECIAL OFFER",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFF59E0B)
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "View offer",
+                        tint = FrictionPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ResponsiveText(
+                        text = "Claim Your 3-Day Free Trial 🎁",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    ResponsiveText(
+                        text = "Unlock Pro hourly analytics graphs, unlimited app blockers, and custom friction barriers with zero ads.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onStartTrialClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = FrictionPrimary,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        ResponsiveText(
+                            text = "Start 3-Day Trial Free",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.Black
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onOpenPaywallClick,
+                        border = BorderStroke(1.dp, FrictionPrimary.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        ResponsiveText(
+                            text = "Plans",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = FrictionPrimary
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

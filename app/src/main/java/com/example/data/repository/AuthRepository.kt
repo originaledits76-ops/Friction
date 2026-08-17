@@ -153,6 +153,33 @@ class AuthRepository(private val context: Context) {
         return user
     }
 
+    private fun getAppSigningSha1(): String {
+        return try {
+            val pm = context.packageManager
+            val packageName = context.packageName
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            }
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+            val cert = signatures?.firstOrNull()?.toByteArray()
+            if (cert != null) {
+                val md = java.security.MessageDigest.getInstance("SHA-1")
+                val digest = md.digest(cert)
+                digest.joinToString(":") { "%02X".format(it) }
+            } else "Unknown"
+        } catch (e: Exception) {
+            "Error: ${e.message}"
+        }
+    }
+
     private fun getWebClientId(): String {
         return try {
             val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
@@ -287,13 +314,17 @@ class AuthRepository(private val context: Context) {
                 val credentialManager = CredentialManager.create(activity)
                 val webClientId = getWebClientId()
                 
+                val signInWithGoogleOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(webClientId)
+                    .build()
+
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
-                    .setAutoSelectEnabled(false) // Force Google Account Picker dialog
+                    .setAutoSelectEnabled(false)
                     .build()
 
                 val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(signInWithGoogleOption)
                     .addCredentialOption(googleIdOption)
                     .build()
 
@@ -362,8 +393,18 @@ class AuthRepository(private val context: Context) {
                 Log.i(tag, "[AuthFlow] Google account selection cancelled by user.")
                 _authStatus.value = AuthStatus.Unauthenticated
             } catch (e: Exception) {
-                Log.e(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}", e)
-                _authStatus.value = AuthStatus.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message}")
+                val activeSha1 = getAppSigningSha1()
+                Log.e(tag, "[AuthFlow] Exception during Google Sign-In: ${e.message}. Active APK SHA-1: $activeSha1", e)
+                
+                val errorDetails = if (e.message?.contains("28444") == true || e.message?.contains("10") == true) {
+                    "Google Sign-In Error 10 (Developer Console Setup Mismatch).\n\n" +
+                    "• Installed APK SHA-1 Fingerprint:\n$activeSha1\n\n" +
+                    "• Registered Firebase SHA-1 Fingerprint:\n0D:AC:03:BF:E1:0A:76:C4:18:8D:2F:E8:0E:E4:8C:E3:42:25:AB:74\n\n" +
+                    "Action Required: If installing a custom build or running on a physical device, add your APK's SHA-1 ($activeSha1) in Firebase Console under Project Settings -> Android Apps."
+                } else {
+                    "Google Sign-In failed: ${e.localizedMessage ?: e.message}"
+                }
+                _authStatus.value = AuthStatus.Error(errorDetails)
             }
         }
     }
@@ -375,6 +416,10 @@ class AuthRepository(private val context: Context) {
             try {
                 val credentialManager = CredentialManager.create(activity)
                 val webClientId = getWebClientId()
+                
+                val signInWithGoogleOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(webClientId)
+                    .build()
+
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
@@ -382,6 +427,7 @@ class AuthRepository(private val context: Context) {
                     .build()
 
                 val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(signInWithGoogleOption)
                     .addCredentialOption(googleIdOption)
                     .build()
 
