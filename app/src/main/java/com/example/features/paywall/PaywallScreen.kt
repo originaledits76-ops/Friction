@@ -279,14 +279,7 @@ private fun Step1BenefitsAndFeatures() {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.premium),
-                contentDescription = "Flick Premium Mascot",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .size(90.dp)
-                    .padding(bottom = 8.dp)
-            )
+            // Mascot removed per user request
             ResponsiveText(
                 text = "Unlock Complete Focus",
                 style = MaterialTheme.typography.headlineSmall,

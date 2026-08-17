@@ -156,12 +156,7 @@ fun AnalyticsScreen(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.low_data),
-                        contentDescription = "Flick Low Data Mascot",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(130.dp)
-                    )
+                    // Mascot removed per user request
                     Spacer(modifier = Modifier.height(20.dp))
                     ResponsiveText(
                         text = "We're still learning your habits",
@@ -410,13 +405,6 @@ fun AnalyticsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Image(
-                                painter = painterResource(id = R.drawable.analytics),
-                                contentDescription = "Analytics Mascot",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 ResponsiveText(
                                     text = "Personal Insights",

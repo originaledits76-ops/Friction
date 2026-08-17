@@ -121,12 +121,7 @@ fun ActiveBlockerScreen(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.challenge),
-                                contentDescription = "Flick Challenge Mascot",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.size(110.dp)
-                            )
+                            // Mascot removed per user request
                             Spacer(modifier = Modifier.height(16.dp))
                             ResponsiveText(
                                 text = "${rule.targetAppName} is Limited",
@@ -283,14 +278,7 @@ fun ActiveBlockerScreen(
                         label = "bounce"
                     )
 
-                    Image(
-                        painter = painterResource(id = R.drawable.success),
-                        contentDescription = "Flick Success Mascot",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .offset(y = bounceY.dp)
-                            .size(130.dp)
-                    )
+                    // Mascot removed per user request
                     Spacer(modifier = Modifier.height(20.dp))
                     ResponsiveText(
                         text = "Challenge Complete!",
@@ -1067,12 +1055,7 @@ fun DurationSelectionUI(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.challenge),
-            contentDescription = "Mascot",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(100.dp)
-        )
+        // Mascot removed per user request
         Spacer(modifier = Modifier.height(16.dp))
         ResponsiveText(
             text = "How long do you want to watch?",

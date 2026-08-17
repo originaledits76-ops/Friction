@@ -107,12 +107,6 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.dashboard),
-                        contentDescription = "Mascot",
-                        modifier = Modifier.size(48.dp),
-                        contentScale = ContentScale.Fit
-                    )
                     Column {
                         ResponsiveText(
                             text = "Hello, ${user?.displayName?.ifBlank { "Mindful User" } ?: "Mindful User"}",
