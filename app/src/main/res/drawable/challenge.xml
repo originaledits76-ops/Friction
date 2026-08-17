@@ -1,0 +1,74 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Target Bullseye Glow -->
+    <path
+        android:pathData="M100,20 A80,80 0 1,1 99.9,20 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="80"
+                android:startColor="#30F43F5E"
+                android:endColor="#00000000">
+                <item android:color="#30F43F5E" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer Ring -->
+    <path
+        android:strokeWidth="12"
+        android:pathData="M100,30 A70,70 0 1,1 99.9,30 Z">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="30"
+                android:startY="30"
+                android:endX="170"
+                android:endY="170"
+                android:startColor="#FFF43F5E"
+                android:endColor="#FFE11D48"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Middle Ring -->
+    <path
+        android:strokeColor="#33FFFFFF"
+        android:strokeWidth="8"
+        android:pathData="M100,55 A45,45 0 1,1 99.9,55 Z" />
+
+    <!-- Center Trophy Bullseye Core -->
+    <path
+        android:pathData="M100,70 A30,30 0 1,1 99.9,70 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="70"
+                android:startY="70"
+                android:endX="130"
+                android:endY="130"
+                android:startColor="#FFF59E0B"
+                android:endColor="#FFD97706"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Star Emblem in Center -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,80 L104,92 L116,92 L106,99 L110,111 L100,103 L90,111 L94,99 L84,92 L96,92 Z" />
+
+    <!-- Energy Bolts Crossing -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M35,40 L25,60 L38,60 L32,80 L50,55 L38,55 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M165,160 L175,140 L162,140 L168,120 L150,145 L162,145 Z" />
+</vector>

@@ -1,0 +1,87 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Golden Aura Radial Glow -->
+    <path
+        android:pathData="M100,10 A90,90 0 1,1 99.9,10 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="90"
+                android:startColor="#40F59E0B"
+                android:endColor="#00000000">
+                <item android:color="#40F59E0B" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Luxury Shield Base -->
+    <path
+        android:pathData="M100,30 C138,30 155,48 155,82 C155,124 100,165 100,165 C100,165 45,124 45,82 C45,48 62,30 100,30 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="45"
+                android:startY="30"
+                android:endX="155"
+                android:endY="165"
+                android:startColor="#FF1E1B4B"
+                android:endColor="#FF0F172A">
+                <item android:color="#FF1E1B4B" android:offset="0.0"/>
+                <item android:color="#FF0F172A" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Golden Crown -->
+    <path
+        android:pathData="M60,110 L50,65 L78,82 L100,52 L122,82 L150,65 L140,110 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="50"
+                android:startY="52"
+                android:endX="150"
+                android:endY="110"
+                android:startColor="#FFFBBF24"
+                android:endColor="#FFD97706">
+                <item android:color="#FFFBBF24" android:offset="0.0"/>
+                <item android:color="#FFD97706" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Crown Jewels -->
+    <path
+        android:fillColor="#FFEF4444"
+        android:pathData="M50,60 A5,5 0 1,1 49.9,60 Z" />
+    <path
+        android:fillColor="#FF3B82F6"
+        android:pathData="M100,47 A6,6 0 1,1 99.9,47 Z" />
+    <path
+        android:fillColor="#FFEF4444"
+        android:pathData="M150,60 A5,5 0 1,1 149.9,60 Z" />
+
+    <!-- Crown Base Band -->
+    <path
+        android:fillColor="#FFB45309"
+        android:pathData="M58,105 L142,105 L140,112 L60,112 Z" />
+
+    <!-- VIP Diamond Sparkles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,40 L34,48 L42,52 L34,56 L30,64 L26,56 L18,52 L26,48 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M170,35 L173,42 L180,45 L173,48 L170,55 L167,48 L160,45 L167,42 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M100,135 L103,142 L110,145 L103,148 L100,155 L97,148 L90,145 L97,142 Z" />
+</vector>

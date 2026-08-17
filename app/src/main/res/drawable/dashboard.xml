@@ -1,0 +1,68 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Outer Glow Ring -->
+    <path
+        android:pathData="M100,15 A85,85 0 1,1 99.9,15 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="85"
+                android:startColor="#253B82F6"
+                android:endColor="#00000000">
+                <item android:color="#253B82F6" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Base Shield Backdrop -->
+    <path
+        android:pathData="M100,25 C145,25 165,45 165,85 C165,135 100,175 100,175 C100,175 35,135 35,85 C35,45 55,25 100,25 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="35"
+                android:startY="25"
+                android:endX="165"
+                android:endY="175"
+                android:startColor="#FF3B82F6"
+                android:endColor="#FF1D4ED8">
+                <item android:color="#FF3B82F6" android:offset="0.0"/>
+                <item android:color="#FF1D4ED8" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Shield Inset -->
+    <path
+        android:fillColor="#15FFFFFF"
+        android:pathData="M100,38 C135,38 150,55 150,88 C150,128 100,160 100,160 C100,160 50,128 50,88 C50,55 65,38 100,38 Z" />
+
+    <!-- Cute Mascot Face inside Shield -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,82 A6,8 0 1,1 81.9,82 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M118,82 A6,8 0 1,1 117.9,82 Z" />
+
+    <!-- Lightning Bolt / Focus Power Crest -->
+    <path
+        android:fillColor="#FFF59E0B"
+        android:pathData="M104,52 L86,92 L98,92 L94,132 L116,88 L104,88 Z" />
+
+    <!-- Decorative Stars -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M30,35 L33,42 L40,45 L33,48 L30,55 L27,48 L20,45 L27,42 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M170,40 L172,45 L177,47 L172,49 L170,54 L168,49 L163,47 L168,45 Z" />
+</vector>

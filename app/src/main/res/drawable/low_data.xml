@@ -1,0 +1,63 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Soft Backdrop Circle -->
+    <path
+        android:pathData="M100,25 A75,75 0 1,1 99.9,25 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="75"
+                android:startColor="#2064748B"
+                android:endColor="#00000000">
+                <item android:color="#2064748B" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Floating Cloud Base -->
+    <path
+        android:pathData="M65,115 C52,115 42,105 42,92 C42,80 50,71 62,70 C66,54 81,42 98,42 C118,42 134,57 136,75 C146,76 155,85 155,96 C155,108 145,115 133,115 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="42"
+                android:startY="42"
+                android:endX="155"
+                android:endY="115"
+                android:startColor="#FF475569"
+                android:endColor="#FF334155"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Curious Mascot Face on Cloud -->
+    <path
+        android:fillColor="#FF94A3B8"
+        android:pathData="M83,75 A4,6 0 1,1 82.9,75 Z" />
+    <path
+        android:fillColor="#FF94A3B8"
+        android:pathData="M112,75 A4,6 0 1,1 111.9,75 Z" />
+    <path
+        android:strokeColor="#FF94A3B8"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M92,88 Q98,82 104,88" />
+
+    <!-- Magnifying Glass Inspecting Cloud -->
+    <path
+        android:strokeColor="#FF38BDF8"
+        android:strokeWidth="7"
+        android:pathData="M115,110 A28,28 0 1,1 114.9,110 Z" />
+    <path
+        android:strokeColor="#FF38BDF8"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M135,130 L165,160" />
+</vector>

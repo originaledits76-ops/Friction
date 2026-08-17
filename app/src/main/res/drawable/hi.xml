@@ -1,0 +1,88 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Background Glow Circle -->
+    <path
+        android:pathData="M100,10 A90,90 0 1,1 99.9,10 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="90"
+                android:startColor="#3310B981"
+                android:endColor="#00000000">
+                <item android:color="#3310B981" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Main Character Body (Flame / Drop Shape) -->
+    <path
+        android:pathData="M100,25 C135,25 160,55 160,95 C160,135 135,165 100,165 C65,165 40,135 40,95 C40,55 65,25 100,25 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="40"
+                android:startY="25"
+                android:endX="160"
+                android:endY="165"
+                android:startColor="#FF10B981"
+                android:endColor="#FF059669">
+                <item android:color="#FF10B981" android:offset="0.0"/>
+                <item android:color="#FF059669" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Waving Hand -->
+    <path
+        android:fillColor="#FF34D399"
+        android:pathData="M150,75 C162,65 172,70 168,82 C165,92 155,98 148,94 Z" />
+    <path
+        android:fillColor="#FF6EE7B7"
+        android:pathData="M165,62 C170,58 176,62 173,68 C170,74 163,74 161,68 Z" />
+
+    <!-- Cute Eyes -->
+    <path
+        android:fillColor="#FF0F172A"
+        android:pathData="M80,85 A8,10 0 1,1 79.9,85 Z" />
+    <path
+        android:fillColor="#FF0F172A"
+        android:pathData="M120,85 A8,10 0 1,1 119.9,85 Z" />
+    <!-- Eye Highlights -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M83,82 A3,3 0 1,1 82.9,82 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M123,82 A3,3 0 1,1 122.9,82 Z" />
+
+    <!-- Happy Smile -->
+    <path
+        android:strokeColor="#FF0F172A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M88,105 Q100,120 112,105" />
+
+    <!-- Cheeks Rosy Glow -->
+    <path
+        android:fillColor="#40F43F5E"
+        android:pathData="M70,98 A6,4 0 1,1 69.9,98 Z" />
+    <path
+        android:fillColor="#40F43F5E"
+        android:pathData="M130,98 A6,4 0 1,1 129.9,98 Z" />
+
+    <!-- Sparkle Stars -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M35,45 L38,52 L45,55 L38,58 L35,65 L32,58 L25,55 L32,52 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M165,35 L167,40 L172,42 L167,44 L165,49 L163,44 L158,42 L163,40 Z" />
+</vector>

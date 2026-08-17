@@ -1,0 +1,111 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Card Background Base -->
+    <path
+        android:pathData="M30,30 L170,30 A16,16 0 0,1 186,46 L186,154 A16,16 0 0,1 170,170 L30,170 A16,16 0 0,1 14,154 L14,46 A16,16 0 0,1 30,30 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="14"
+                android:startY="30"
+                android:endX="186"
+                android:endY="170"
+                android:startColor="#FF1E293B"
+                android:endColor="#FF0F172A">
+                <item android:color="#FF1E293B" android:offset="0.0"/>
+                <item android:color="#FF0F172A" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Grid Line accents -->
+    <path
+        android:strokeColor="#3364748B"
+        android:strokeWidth="1.5"
+        android:pathData="M30,60 L170,60 M30,95 L170,95 M30,130 L170,130" />
+
+    <!-- Bar Chart Columns -->
+    <!-- Column 1 -->
+    <path
+        android:pathData="M35,110 L55,110 L55,150 L35,150 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="35"
+                android:startY="110"
+                android:endX="55"
+                android:endY="150"
+                android:startColor="#FF38BDF8"
+                android:endColor="#FF0284C7"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Column 2 -->
+    <path
+        android:pathData="M68,85 L88,85 L88,150 L68,150 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="68"
+                android:startY="85"
+                android:endX="88"
+                android:endY="150"
+                android:startColor="#FF10B981"
+                android:endColor="#FF059669"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Column 3 -->
+    <path
+        android:pathData="M101,65 L121,65 L121,150 L101,150 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="101"
+                android:startY="65"
+                android:endX="121"
+                android:endY="150"
+                android:startColor="#FFA855F7"
+                android:endColor="#FF7E22CE"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Column 4 -->
+    <path
+        android:pathData="M134,48 L154,48 L154,150 L134,150 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="134"
+                android:startY="48"
+                android:endX="154"
+                android:endY="150"
+                android:startColor="#FFF59E0B"
+                android:endColor="#FFD97706"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Upward Trend Line -->
+    <path
+        android:strokeColor="#FF34D399"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M45,100 L78,75 L111,55 L144,38" />
+
+    <!-- Cute Smart Mascot Glasses Character Circle in Top Right -->
+    <path
+        android:fillColor="#FF10B981"
+        android:pathData="M165,25 A22,22 0 1,1 164.9,25 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M156,23 A3,3 0 1,1 155.9,23 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M174,23 A3,3 0 1,1 173.9,23 Z" />
+</vector>
