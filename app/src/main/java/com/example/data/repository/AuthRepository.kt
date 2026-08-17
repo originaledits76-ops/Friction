@@ -314,9 +314,6 @@ class AuthRepository(private val context: Context) {
                 val credentialManager = CredentialManager.create(activity)
                 val webClientId = getWebClientId()
                 
-                val signInWithGoogleOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(webClientId)
-                    .build()
-
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
@@ -324,7 +321,6 @@ class AuthRepository(private val context: Context) {
                     .build()
 
                 val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(signInWithGoogleOption)
                     .addCredentialOption(googleIdOption)
                     .build()
 
@@ -417,9 +413,6 @@ class AuthRepository(private val context: Context) {
                 val credentialManager = CredentialManager.create(activity)
                 val webClientId = getWebClientId()
                 
-                val signInWithGoogleOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(webClientId)
-                    .build()
-
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
@@ -427,7 +420,6 @@ class AuthRepository(private val context: Context) {
                     .build()
 
                 val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(signInWithGoogleOption)
                     .addCredentialOption(googleIdOption)
                     .build()
 
