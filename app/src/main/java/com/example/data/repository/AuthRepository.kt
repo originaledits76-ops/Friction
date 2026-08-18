@@ -242,12 +242,19 @@ class AuthRepository(private val context: Context) {
 
                 if (fbUser == null || !fbUser.isAnonymous) {
                     if (authInstance != null) {
-                        val authResult = authInstance.signInAnonymously().await()
-                        fbUser = authResult.user
+                        try {
+                            val authResult = authInstance.signInAnonymously().await()
+                            fbUser = authResult.user
+                        } catch (e: Exception) {
+                            Log.w(tag, "[signInAnonymously] Firebase Anonymous Auth unprovisioned/failed (${e.message}). Proceeding with local guest session.")
+                        }
                     }
                 }
 
-                val targetUid = fbUser?.uid ?: prefs.getString("active_uid", null) ?: prefs.getString("anonymous_uid", null) ?: "anon_${UUID.randomUUID().toString().take(12)}"
+                val targetUid = fbUser?.uid
+                    ?: prefs.getString("active_uid", null)
+                    ?: prefs.getString("anonymous_uid", null)
+                    ?: "anon_${UUID.randomUUID().toString().take(12)}"
 
                 prefs.edit().apply {
                     putString("active_uid", targetUid)
@@ -256,7 +263,10 @@ class AuthRepository(private val context: Context) {
                     apply()
                 }
 
-                val existingRemoteUser = withContext(Dispatchers.IO) { userRepository.getUser(targetUid) }
+                val existingRemoteUser = try {
+                    withContext(Dispatchers.IO) { userRepository.getUser(targetUid) }
+                } catch (e: Exception) { null }
+
                 val finalUser = if (existingRemoteUser != null) {
                     Log.i(tag, "[signInAnonymously] Existing guest user detected for UID '$targetUid'. Restoring profile.")
                     existingRemoteUser
@@ -294,13 +304,17 @@ class AuthRepository(private val context: Context) {
                         try {
                             userRepository.createOrUpdateUser(finalUser)
                         } catch (e: Exception) {
-                            Log.w(tag, "[signInAnonymously] Firestore sync failed: ${e.message}")
+                            Log.w(tag, "[signInAnonymously] Async Firestore sync skipped: ${e.message}")
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.e(tag, "[signInAnonymously] Error during guest sign-in: ${e.message}", e)
-                _authStatus.value = AuthStatus.Error("Guest Sign-In failed: ${e.localizedMessage ?: e.message}")
+                Log.e(tag, "[signInAnonymously] Unhandled exception in guest sign-in: ${e.message}", e)
+                val fallbackUid = prefs.getString("anonymous_uid", null) ?: "anon_${UUID.randomUUID().toString().take(12)}"
+                prefs.edit().putString("active_uid", fallbackUid).putString("anonymous_uid", fallbackUid).putBoolean("demo_logged_in", true).apply()
+                val fallbackUser = getCachedUser(fallbackUid).copy(uid = fallbackUid, guest = true, displayName = "Guest Companion")
+                saveCachedUser(fallbackUser)
+                _authStatus.value = AuthStatus.Authenticated(fallbackUser)
             }
         }
     }
