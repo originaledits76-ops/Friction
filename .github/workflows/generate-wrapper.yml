@@ -1,0 +1,27 @@
+name: Generate Gradle Wrapper
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  wrapper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Generate Wrapper
+        run: gradle wrapper
+
+      - name: Commit and push gradlew
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add gradlew via GitHub Actions"
+          file_pattern: "gradlew gradlew.bat gradle/wrapper/*"
