@@ -3,6 +3,7 @@ package com.example.features.ads
 import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,11 +27,17 @@ fun FrictionBannerAd(user: User?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (isAdLoaded) Modifier.padding(vertical = 4.dp) else Modifier),
+            .then(
+                if (isAdLoaded) {
+                    Modifier.padding(top = 8.dp, bottom = 12.dp)
+                } else {
+                    Modifier.height(0.dp)
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
-            modifier = if (isAdLoaded) Modifier.fillMaxWidth() else Modifier,
+            modifier = if (isAdLoaded) Modifier.fillMaxWidth() else Modifier.height(0.dp),
             factory = { context ->
                 AdView(context).apply {
                     setAdSize(AdSize.BANNER)
@@ -55,4 +62,5 @@ fun FrictionBannerAd(user: User?, modifier: Modifier = Modifier) {
         )
     }
 }
+
 
